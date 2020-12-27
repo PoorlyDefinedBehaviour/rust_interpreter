@@ -1,9 +1,9 @@
 #[derive(Debug, PartialEq)]
-pub(crate) enum Token<'a> {
+pub enum Token {
   Illegal(char),
   Eof,
-  Identifier(&'a str),
-  Int(&'a str),
+  Identifier(String),
+  Number(String),
   Assign,
   Plus,
   Comma,
@@ -14,4 +14,12 @@ pub(crate) enum Token<'a> {
   RightBrace,
   Function,
   Let,
+}
+
+pub fn lookup_identifier(lexeme: String) -> Token {
+  match lexeme.as_str() {
+    "let" => Token::Let,
+    "fn" => Token::Function,
+    _ => Token::Identifier(lexeme),
+  }
 }

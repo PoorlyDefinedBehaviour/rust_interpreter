@@ -1,7 +1,7 @@
 use crate::token::*;
 
 #[derive(Debug)]
-pub(crate) struct Lexer {
+pub struct Lexer {
   source_code: String,
   position: usize,
   next_position: usize,
@@ -34,7 +34,45 @@ impl Lexer {
     self.next_position += 1;
   }
 
+  fn skip_whitespace(&mut self) {
+    while self.character.is_ascii_whitespace() {
+      self.read_character();
+    }
+  }
+
+  fn read_identifier(&mut self) -> String {
+    let identifier_starts_at = self.position;
+
+    while self.character.is_alphabetic() {
+      self.read_character();
+    }
+
+    self
+      .source_code
+      .chars()
+      .skip(identifier_starts_at)
+      .take(self.position - identifier_starts_at)
+      .collect()
+  }
+
+  fn read_number(&mut self) -> String {
+    let number_starts_at = self.position;
+
+    while self.character.is_digit(10) {
+      self.read_character();
+    }
+
+    self
+      .source_code
+      .chars()
+      .skip(number_starts_at)
+      .take(self.position - number_starts_at)
+      .collect()
+  }
+
   pub fn next(&mut self) -> Token {
+    self.skip_whitespace();
+
     let token = match self.character {
       '=' => Token::Assign,
       ';' => Token::Semicolon,
@@ -45,23 +83,17 @@ impl Lexer {
       '{' => Token::LeftBrace,
       '}' => Token::RightBrace,
       '\0' => Token::Eof,
-      character if character.is_alphabetic() => self.read_identifier(),
+      character if character.is_alphabetic() => {
+        let identifier = self.read_identifier();
+        return lookup_identifier(identifier);
+      }
+      character if character.is_digit(10) => return Token::Number(self.read_number()),
       character => Token::Illegal(character),
     };
 
     self.read_character();
 
     token
-  }
-
-  fn read_identifier(&mut self) -> Token {
-    let identifierStartsAt = self.position;
-
-    while self.character.is_alphabetic() {
-      self.read_character();
-    }
-
-    Token::Identifier(&self.source_code[identifierStartsAt..self.position])
   }
 }
 
@@ -81,39 +113,38 @@ fn next_token() {
 
   let tokens = vec![
     Token::Let,
-    Token::Identifier("five"),
+    Token::Identifier(String::from("five")),
     Token::Assign,
-    Token::Int("5"),
+    Token::Number(String::from("5")),
     Token::Semicolon,
     Token::Let,
-    Token::Identifier("ten"),
+    Token::Identifier(String::from("ten")),
     Token::Assign,
-    Token::Int("10"),
+    Token::Number(String::from("10")),
     Token::Semicolon,
     Token::Let,
-    Token::Identifier("add"),
+    Token::Identifier(String::from("add")),
     Token::Assign,
     Token::Function,
     Token::LeftParen,
-    Token::Identifier("x"),
+    Token::Identifier(String::from("x")),
     Token::Comma,
-    Token::Identifier("y"),
+    Token::Identifier(String::from("y")),
     Token::RightParen,
     Token::LeftBrace,
-    Token::Identifier("x"),
+    Token::Identifier(String::from("x")),
     Token::Plus,
-    Token::Identifier("y"),
+    Token::Identifier(String::from("y")),
     Token::Semicolon,
     Token::RightBrace,
-    Token::Semicolon,
     Token::Let,
-    Token::Identifier("result"),
+    Token::Identifier(String::from("result")),
     Token::Assign,
-    Token::Identifier("add"),
+    Token::Identifier(String::from("add")),
     Token::LeftParen,
-    Token::Identifier("five"),
+    Token::Identifier(String::from("five")),
     Token::Comma,
-    Token::Identifier("ten"),
+    Token::Identifier(String::from("ten")),
     Token::RightParen,
     Token::Semicolon,
     Token::Eof,
@@ -122,6 +153,8 @@ fn next_token() {
   let mut lexer = Lexer::new(input);
 
   for token in tokens {
-    assert_eq!(token, lexer.next())
+    let t = lexer.next();
+    println!("token: {:?}, t: {:?}", token, t);
+    assert_eq!(token, t)
   }
 }
