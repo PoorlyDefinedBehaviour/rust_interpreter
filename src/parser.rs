@@ -76,9 +76,29 @@ impl Parser {
   fn parse_statement(&mut self) -> Statement {
     match self.current_token() {
       Some(Token::Let) => self.parse_let_statement(),
+      Some(Token::Return) => self.parse_return_statement(),
       Some(statement) => panic!("unexpected statement: {:?}", statement),
       None => panic!("no tokens left to parse"),
     }
+  }
+
+  fn parse_return_statement(&mut self) -> Statement {
+    let token = self.next_token().unwrap().clone();
+
+    while let Some(current_token) = self.current_token() {
+      if *current_token == Token::Semicolon || *current_token == Token::Eof {
+        break;
+      }
+
+      self.next_token();
+    }
+
+    self.consume(Token::Semicolon);
+
+    Statement::Return(ReturnStatement {
+      token,
+      value: Expression {},
+    })
   }
 
   fn parse_let_statement(&mut self) -> Statement {
@@ -87,6 +107,7 @@ impl Parser {
     let identifier = self.consume_with_value(Token::Identifier);
 
     self.consume(Token::Assign);
+
     while let Some(current_token) = self.current_token() {
       if *current_token == Token::Semicolon || *current_token == Token::Eof {
         break;
@@ -127,6 +148,45 @@ fn parse_let_statement_error() {
     ("let x 5;", "expected Assign, got Number(\"5\")"),
     ("let = 5;", "expected Identifier(\"_\"), got Assign"),
   ];
+
+  for (input, expected_error) in test_cases {
+    let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+
+    parser.parse();
+
+    assert_eq!(parser.errors[0], expected_error);
+  }
+}
+
+#[test]
+fn parse_return_statement() {
+  let test_cases = vec![
+    (
+      "return 5;",
+      Statement::Return(ReturnStatement {
+        token: Token::Return,
+        value: Expression {},
+      }),
+    ),
+    (
+      "return 10;",
+      Statement::Return(ReturnStatement {
+        token: Token::Return,
+        value: Expression {},
+      }),
+    ),
+  ];
+
+  for (input, expected_statement) in test_cases {
+    let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+
+    assert_eq!(parser.parse()[0], expected_statement);
+  }
+}
+
+#[test]
+fn parse_return_statement_error() {
+  let test_cases = vec![("return 5", "expected Semicolon, got Eof")];
 
   for (input, expected_error) in test_cases {
     let mut parser = Parser::new(Lexer::new(String::from(input)).lex());

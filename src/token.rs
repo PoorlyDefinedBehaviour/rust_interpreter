@@ -14,12 +14,14 @@ pub enum Token {
   RightBrace,
   Function,
   Let,
+  Return,
 }
 
 pub fn lookup_identifier(lexeme: String) -> Token {
   match lexeme.as_str() {
     "let" => Token::Let,
     "fn" => Token::Function,
+    "return" => Token::Return,
     _ => Token::Identifier(lexeme),
   }
 }
