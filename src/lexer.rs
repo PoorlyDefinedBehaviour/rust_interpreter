@@ -22,6 +22,20 @@ impl Lexer {
     lexer
   }
 
+  pub fn lex(&mut self) -> Vec<Token> {
+    let mut tokens = Vec::new();
+
+    while self.has_characters_to_lex() {
+      tokens.push(self.next_token());
+    }
+
+    tokens
+  }
+
+  fn has_characters_to_lex(&self) -> bool {
+    self.position <= self.source_code.len()
+  }
+
   fn read_character(&mut self) {
     if self.next_position >= self.source_code.len() {
       self.character = '\0';
@@ -70,7 +84,7 @@ impl Lexer {
       .collect()
   }
 
-  pub fn next(&mut self) -> Token {
+  fn next_token(&mut self) -> Token {
     self.skip_whitespace();
 
     let token = match self.character {
@@ -98,63 +112,35 @@ impl Lexer {
 }
 
 #[test]
-fn next_token() {
-  let input = String::from(
-    "
-    let five = 5;
-    let ten = 10;
-    let add = fn(x, y) {
-      x + y;
-    }
-
-    let result = add(five, ten);
-  ",
-  );
-
-  let tokens = vec![
-    Token::Let,
-    Token::Identifier(String::from("five")),
-    Token::Assign,
-    Token::Number(String::from("5")),
-    Token::Semicolon,
-    Token::Let,
-    Token::Identifier(String::from("ten")),
-    Token::Assign,
-    Token::Number(String::from("10")),
-    Token::Semicolon,
-    Token::Let,
-    Token::Identifier(String::from("add")),
-    Token::Assign,
-    Token::Function,
-    Token::LeftParen,
-    Token::Identifier(String::from("x")),
-    Token::Comma,
-    Token::Identifier(String::from("y")),
-    Token::RightParen,
-    Token::LeftBrace,
-    Token::Identifier(String::from("x")),
-    Token::Plus,
-    Token::Identifier(String::from("y")),
-    Token::Semicolon,
-    Token::RightBrace,
-    Token::Let,
-    Token::Identifier(String::from("result")),
-    Token::Assign,
-    Token::Identifier(String::from("add")),
-    Token::LeftParen,
-    Token::Identifier(String::from("five")),
-    Token::Comma,
-    Token::Identifier(String::from("ten")),
-    Token::RightParen,
-    Token::Semicolon,
-    Token::Eof,
+fn let_statements() {
+  let test_cases: Vec<(&str, Vec<Token>)> = vec![
+    (
+      "let five = 5;",
+      vec![
+        Token::Let,
+        Token::Identifier(String::from("five")),
+        Token::Assign,
+        Token::Number(String::from("5")),
+        Token::Semicolon,
+        Token::Eof,
+      ],
+    ),
+    (
+      "let ten = 10;",
+      vec![
+        Token::Let,
+        Token::Identifier(String::from("ten")),
+        Token::Assign,
+        Token::Number(String::from("10")),
+        Token::Semicolon,
+        Token::Eof,
+      ],
+    ),
   ];
 
-  let mut lexer = Lexer::new(input);
+  for (input, expected_tokens) in test_cases {
+    let mut lexer = Lexer::new(String::from(input));
 
-  for token in tokens {
-    let t = lexer.next();
-    println!("token: {:?}, t: {:?}", token, t);
-    assert_eq!(token, t)
+    assert_eq!(expected_tokens, lexer.lex());
   }
 }
