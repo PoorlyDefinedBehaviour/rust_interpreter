@@ -1,20 +1,50 @@
 use crate::ast::*;
 use crate::lexer::Lexer;
 use crate::token::*;
+use std::collections::HashMap;
+
+#[non_exhaustive]
+struct Precedence;
+
+impl Precedence {
+  pub const NONE: i32 = 0;
+  pub const ASSIGNMENT: i32 = 1; // =
+  pub const OR: i32 = 2; // or
+  pub const AND: i32 = 3; // and
+  pub const EQUALITY: i32 = 4; // == !=
+  pub const COMPARISON: i32 = 5; // < > <= >=
+  pub const TERM: i32 = 6; // + -
+  pub const FACTOR: i32 = 7; // * /
+  pub const UNARY: i32 = 8; // ! -
+  pub const CALL: i32 = 9; // . ()
+  pub const PRIMARY: i32 = 10;
+}
+
+type PrefixParselet = fn(&mut Parser, Token) -> Expression;
+type InfixParselet = fn(&mut Parser, Expression, Token) -> Expression;
 
 pub struct Parser {
   current_position: usize,
   tokens: Vec<Token>,
   errors: Vec<String>,
+  prefix_parselets: HashMap<std::mem::Discriminant<Token>, PrefixParselet>,
+  infix_parselets: HashMap<std::mem::Discriminant<Token>, InfixParselet>,
 }
 
 impl Parser {
   pub fn new(tokens: Vec<Token>) -> Self {
-    let parser = Parser {
+    let mut parser = Parser {
       current_position: 0,
       errors: vec![],
+      prefix_parselets: HashMap::new(),
+      infix_parselets: HashMap::new(),
       tokens,
     };
+
+    parser.prefix(
+      std::mem::discriminant(&Token::Identifier(String::from("_"))),
+      Parser::parse_identifier,
+    );
 
     parser
   }
@@ -29,6 +59,14 @@ impl Parser {
         None => return statements,
       }
     }
+  }
+
+  fn prefix(&mut self, token: std::mem::Discriminant<Token>, parselet: PrefixParselet) {
+    self.prefix_parselets.insert(token, parselet);
+  }
+
+  fn infix(&mut self, token: std::mem::Discriminant<Token>, parselet: InfixParselet) {
+    self.infix_parselets.insert(token, parselet);
   }
 
   fn current_token(&self) -> Option<&Token> {
@@ -77,13 +115,33 @@ impl Parser {
     match self.current_token() {
       Some(Token::Let) => self.parse_let_statement(),
       Some(Token::Return) => self.parse_return_statement(),
-      Some(statement) => panic!("unexpected statement: {:?}", statement),
+      Some(_statement) => self.parse_expression_statement(Precedence::NONE),
       None => panic!("no tokens left to parse"),
     }
   }
 
+  fn parse_expression_statement(&mut self, precedence: i32) -> Statement {
+    let token = self.next_token().cloned().unwrap();
+
+    println!("parse_expression_statement, token: {:?}", token);
+
+    let prefix_parselet = self
+      .prefix_parselets
+      .get(&std::mem::discriminant(&token))
+      .unwrap();
+
+    Statement::Expression(prefix_parselet(self, token))
+  }
+
+  fn parse_identifier(&mut self, token: Token) -> Expression {
+    match token {
+      Token::Identifier(identifier) => Expression::Identifier(identifier),
+      _ => unreachable!(),
+    }
+  }
+
   fn parse_return_statement(&mut self) -> Statement {
-    let token = self.next_token().unwrap().clone();
+    self.consume(Token::Return);
 
     while let Some(current_token) = self.current_token() {
       if *current_token == Token::Semicolon || *current_token == Token::Eof {
@@ -95,10 +153,7 @@ impl Parser {
 
     self.consume(Token::Semicolon);
 
-    Statement::Return(ReturnStatement {
-      token,
-      value: Expression {},
-    })
+    Statement::Return(Expression::Identifier(String::from("todo")))
   }
 
   fn parse_let_statement(&mut self) -> Statement {
@@ -163,17 +218,11 @@ fn parse_return_statement() {
   let test_cases = vec![
     (
       "return 5;",
-      Statement::Return(ReturnStatement {
-        token: Token::Return,
-        value: Expression {},
-      }),
+      Statement::Return(Expression::Identifier(String::from("todo"))),
     ),
     (
       "return 10;",
-      Statement::Return(ReturnStatement {
-        token: Token::Return,
-        value: Expression {},
-      }),
+      Statement::Return(Expression::Identifier(String::from("todo"))),
     ),
   ];
 
@@ -194,5 +243,20 @@ fn parse_return_statement_error() {
     parser.parse();
 
     assert_eq!(parser.errors[0], expected_error);
+  }
+}
+
+#[test]
+fn parse_identifier_expression() {
+  let test_cases = vec![
+    ("foobar", "Identifier(\"foobar\")"),
+    ("baz", "Identifier(\"baz\")"),
+    ("hello", "Identifier(\"hello\")"),
+  ];
+
+  for (input, expected) in test_cases {
+    let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+
+    assert_eq!(parser.parse()[0].to_string(), expected);
   }
 }

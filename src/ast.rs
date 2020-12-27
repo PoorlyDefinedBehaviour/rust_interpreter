@@ -2,11 +2,15 @@ use crate::token::*;
 use std::fmt;
 
 #[derive(Debug, PartialEq)]
-pub struct Expression {}
+pub enum Expression {
+  Identifier(String),
+}
 
 impl fmt::Display for Expression {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    write!(f, "hello world")
+    match self {
+      Expression::Identifier(identifier) => write!(f, "Identifier({:?})", identifier),
+    }
   }
 }
 
@@ -27,34 +31,10 @@ impl fmt::Display for LetStatement {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct ReturnStatement {
-  pub token: Token,
-  pub value: Expression,
-}
-
-impl fmt::Display for ReturnStatement {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    write!(f, "Return")
-  }
-}
-
-#[derive(Debug, PartialEq)]
-pub struct ExpressionStatement {
-  pub token: Token,
-  expression: Expression,
-}
-
-impl fmt::Display for ExpressionStatement {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    write!(f, "Expression({:?})", self.expression)
-  }
-}
-
-#[derive(Debug, PartialEq)]
 pub enum Statement {
   Let(LetStatement),
-  Return(ReturnStatement),
-  Expression(ExpressionStatement),
+  Return(Expression),
+  Expression(Expression),
 }
 
 impl fmt::Display for Statement {
