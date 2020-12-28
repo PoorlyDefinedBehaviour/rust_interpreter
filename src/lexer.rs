@@ -94,6 +94,8 @@ impl Lexer {
       ')' => Token::RightParen,
       ',' => Token::Comma,
       '+' => Token::Plus,
+      '-' => Token::Minus,
+      '!' => Token::Bang,
       '{' => Token::LeftBrace,
       '}' => Token::RightBrace,
       '\0' => Token::Eof,
@@ -163,6 +165,28 @@ mod tests {
           Token::Eof,
         ],
       ),
+    ];
+
+    for (input, expected_tokens) in test_cases {
+      let mut lexer = Lexer::new(String::from(input));
+
+      assert_eq!(expected_tokens, lexer.lex());
+    }
+  }
+
+  #[test]
+  fn single_character_tokens() {
+    let test_cases: Vec<(&str, Vec<Token>)> = vec![
+      ("=", vec![Token::Assign, Token::Eof]),
+      (";", vec![Token::Semicolon, Token::Eof]),
+      ("(", vec![Token::LeftParen, Token::Eof]),
+      (")", vec![Token::RightParen, Token::Eof]),
+      (",", vec![Token::Comma, Token::Eof]),
+      ("+", vec![Token::Plus, Token::Eof]),
+      ("-", vec![Token::Minus, Token::Eof]),
+      ("!", vec![Token::Bang, Token::Eof]),
+      ("{", vec![Token::LeftBrace, Token::Eof]),
+      ("}", vec![Token::RightBrace, Token::Eof]),
     ];
 
     for (input, expected_tokens) in test_cases {

@@ -7,6 +7,7 @@ struct Precedence;
 
 impl Precedence {
   pub const NONE: i32 = 0;
+  pub const TERM: i32 = 6;
 }
 
 type PrefixParselet = fn(&mut Parser, Token) -> Expression;
@@ -35,6 +36,16 @@ impl Parser {
     parser.prefix(
       std::mem::discriminant(&Token::Number(String::from("_"))),
       Parser::parse_number,
+    );
+
+    parser.prefix(
+      std::mem::discriminant(&Token::Minus),
+      Parser::parse_prefix_expression,
+    );
+
+    parser.prefix(
+      std::mem::discriminant(&Token::Bang),
+      Parser::parse_prefix_expression,
     );
 
     parser
@@ -105,22 +116,35 @@ impl Parser {
     match self.current_token() {
       Some(Token::Let) => self.parse_let_statement(),
       Some(Token::Return) => self.parse_return_statement(),
-      Some(_statement) => self.parse_expression_statement(Precedence::NONE),
+      Some(_statement) => self
+        .parse_expression_statement(Precedence::NONE)
+        .map(Statement::Expression),
       None => panic!("no tokens left to parse"),
     }
   }
 
-  fn parse_expression_statement(&mut self, _precedence: i32) -> Result<Statement, String> {
+  fn parse_expression_statement(&mut self, _precedence: i32) -> Result<Expression, String> {
     let token = self.next_token().cloned().unwrap();
 
-    println!("parse_expression_statement, token: {:?}", token);
+    println!("aaaaaaa 1, {:?}", token);
 
-    let prefix_parselet = self
-      .prefix_parselets
-      .get(&std::mem::discriminant(&token))
-      .unwrap();
+    match self.prefix_parselets.get(&std::mem::discriminant(&token)) {
+      Some(parselet) => {
+        let p = parselet(self, token);
+        println!("aaaaa token {:?}", p);
+        Ok(p)
+      }
+      None => Err(format!("no prefix parselet found for {:?}", token)),
+    }
+  }
 
-    Ok(Statement::Expression(prefix_parselet(self, token)))
+  fn parse_prefix_expression(&mut self, token: Token) -> Expression {
+    let operand = self.parse_expression_statement(Precedence::TERM).unwrap();
+
+    Expression::Prefix(PrefixExpression {
+      operator: token,
+      operand: Box::new(operand),
+    })
   }
 
   fn parse_identifier(&mut self, token: Token) -> Expression {
@@ -272,6 +296,20 @@ mod tests {
       ("10", "Number(10.0)"),
       ("3", "Number(3.0)"),
       ("0", "Number(0.0)"),
+    ];
+
+    for (input, expected) in test_cases {
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+
+      assert_eq!(parser.parse()[0].to_string(), expected);
+    }
+  }
+
+  #[test]
+  fn parse_prefix_operators() {
+    let test_cases = vec![
+      ("!5", "(Bang Number(5.0))"),
+      ("-15", "(Minus Number(15.0))"),
     ];
 
     for (input, expected) in test_cases {

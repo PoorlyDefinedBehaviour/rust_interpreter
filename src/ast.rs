@@ -2,9 +2,16 @@ use crate::token::*;
 use std::fmt;
 
 #[derive(Debug, PartialEq)]
+pub struct PrefixExpression {
+  pub operator: Token,
+  pub operand: Box<Expression>,
+}
+
+#[derive(Debug, PartialEq)]
 pub enum Expression {
   Identifier(String),
   Number(f64),
+  Prefix(PrefixExpression),
 }
 
 impl fmt::Display for Expression {
@@ -12,6 +19,9 @@ impl fmt::Display for Expression {
     match self {
       Expression::Identifier(identifier) => write!(f, "Identifier({:?})", identifier),
       Expression::Number(number) => write!(f, "Number({:?})", number),
+      Expression::Prefix(expression) => {
+        write!(f, "({:?} {:?})", expression.operator, expression.operand)
+      }
     }
   }
 }
@@ -47,11 +57,6 @@ impl fmt::Display for Statement {
       Statement::Expression(statement) => statement.fmt(f),
     }
   }
-}
-
-#[derive(Debug, PartialEq)]
-pub enum Node {
-  Statement(Statement),
 }
 
 #[derive(Debug)]
