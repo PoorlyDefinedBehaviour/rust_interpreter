@@ -6,6 +6,8 @@ pub enum Token {
   Number(String),
   Assign,
   Plus,
+  Minus,
+  Bang,
   Comma,
   Semicolon,
   LeftParen,
