@@ -98,6 +98,10 @@ impl Lexer {
       '!' => Token::Bang,
       '{' => Token::LeftBrace,
       '}' => Token::RightBrace,
+      '*' => Token::Star,
+      '/' => Token::Slash,
+      '>' => Token::GreaterThan,
+      '<' => Token::LessThan,
       '\0' => Token::Eof,
       character if character.is_alphabetic() => {
         let identifier = self.read_identifier();
@@ -187,6 +191,10 @@ mod tests {
       ("!", vec![Token::Bang, Token::Eof]),
       ("{", vec![Token::LeftBrace, Token::Eof]),
       ("}", vec![Token::RightBrace, Token::Eof]),
+      ("*", vec![Token::Star, Token::Eof]),
+      ("/", vec![Token::Slash, Token::Eof]),
+      (">", vec![Token::GreaterThan, Token::Eof]),
+      ("<", vec![Token::LessThan, Token::Eof]),
     ];
 
     for (input, expected_tokens) in test_cases {
