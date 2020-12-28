@@ -8,10 +8,18 @@ pub struct PrefixExpression {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct InfixExpression {
+  pub left_operand: Box<Expression>,
+  pub operator: Token,
+  pub right_operand: Box<Expression>,
+}
+
+#[derive(Debug, PartialEq)]
 pub enum Expression {
   Identifier(String),
   Number(f64),
   Prefix(PrefixExpression),
+  Infix(InfixExpression),
 }
 
 impl fmt::Display for Expression {
@@ -21,6 +29,13 @@ impl fmt::Display for Expression {
       Expression::Number(number) => write!(f, "Number({:?})", number),
       Expression::Prefix(expression) => {
         write!(f, "({:?} {:?})", expression.operator, expression.operand)
+      }
+      Expression::Infix(expression) => {
+        write!(
+          f,
+          "({:?} {:?} {:?})",
+          expression.left_operand, expression.operator, expression.right_operand
+        )
       }
     }
   }
