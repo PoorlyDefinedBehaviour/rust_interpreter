@@ -1,5 +1,4 @@
 use crate::ast::*;
-use crate::lexer::Lexer;
 use crate::token::*;
 use std::collections::HashMap;
 
@@ -8,27 +7,15 @@ struct Precedence;
 
 impl Precedence {
   pub const NONE: i32 = 0;
-  pub const ASSIGNMENT: i32 = 1; // =
-  pub const OR: i32 = 2; // or
-  pub const AND: i32 = 3; // and
-  pub const EQUALITY: i32 = 4; // == !=
-  pub const COMPARISON: i32 = 5; // < > <= >=
-  pub const TERM: i32 = 6; // + -
-  pub const FACTOR: i32 = 7; // * /
-  pub const UNARY: i32 = 8; // ! -
-  pub const CALL: i32 = 9; // . ()
-  pub const PRIMARY: i32 = 10;
 }
 
 type PrefixParselet = fn(&mut Parser, Token) -> Expression;
-type InfixParselet = fn(&mut Parser, Expression, Token) -> Expression;
 
 pub struct Parser {
   current_position: usize,
   tokens: Vec<Token>,
   errors: Vec<String>,
   prefix_parselets: HashMap<std::mem::Discriminant<Token>, PrefixParselet>,
-  infix_parselets: HashMap<std::mem::Discriminant<Token>, InfixParselet>,
 }
 
 impl Parser {
@@ -37,13 +24,17 @@ impl Parser {
       current_position: 0,
       errors: vec![],
       prefix_parselets: HashMap::new(),
-      infix_parselets: HashMap::new(),
       tokens,
     };
 
     parser.prefix(
       std::mem::discriminant(&Token::Identifier(String::from("_"))),
       Parser::parse_identifier,
+    );
+
+    parser.prefix(
+      std::mem::discriminant(&Token::Number(String::from("_"))),
+      Parser::parse_number,
     );
 
     parser
@@ -55,7 +46,10 @@ impl Parser {
     loop {
       match self.current_token() {
         Some(Token::Eof) => return statements,
-        Some(_) => statements.push(self.parse_statement()),
+        Some(_) => match self.parse_statement() {
+          Ok(statement) => statements.push(statement),
+          Err(message) => self.errors.push(message),
+        },
         None => return statements,
       }
     }
@@ -63,10 +57,6 @@ impl Parser {
 
   fn prefix(&mut self, token: std::mem::Discriminant<Token>, parselet: PrefixParselet) {
     self.prefix_parselets.insert(token, parselet);
-  }
-
-  fn infix(&mut self, token: std::mem::Discriminant<Token>, parselet: InfixParselet) {
-    self.infix_parselets.insert(token, parselet);
   }
 
   fn current_token(&self) -> Option<&Token> {
@@ -111,7 +101,7 @@ impl Parser {
     token
   }
 
-  fn parse_statement(&mut self) -> Statement {
+  fn parse_statement(&mut self) -> Result<Statement, String> {
     match self.current_token() {
       Some(Token::Let) => self.parse_let_statement(),
       Some(Token::Return) => self.parse_return_statement(),
@@ -120,7 +110,7 @@ impl Parser {
     }
   }
 
-  fn parse_expression_statement(&mut self, precedence: i32) -> Statement {
+  fn parse_expression_statement(&mut self, _precedence: i32) -> Result<Statement, String> {
     let token = self.next_token().cloned().unwrap();
 
     println!("parse_expression_statement, token: {:?}", token);
@@ -130,7 +120,7 @@ impl Parser {
       .get(&std::mem::discriminant(&token))
       .unwrap();
 
-    Statement::Expression(prefix_parselet(self, token))
+    Ok(Statement::Expression(prefix_parselet(self, token)))
   }
 
   fn parse_identifier(&mut self, token: Token) -> Expression {
@@ -140,7 +130,14 @@ impl Parser {
     }
   }
 
-  fn parse_return_statement(&mut self) -> Statement {
+  fn parse_number(&mut self, token: Token) -> Expression {
+    match &token {
+      Token::Number(number) => Expression::Number(number.parse::<f64>().unwrap()),
+      _ => unreachable!(),
+    }
+  }
+
+  fn parse_return_statement(&mut self) -> Result<Statement, String> {
     self.consume(Token::Return);
 
     while let Some(current_token) = self.current_token() {
@@ -153,10 +150,12 @@ impl Parser {
 
     self.consume(Token::Semicolon);
 
-    Statement::Return(Expression::Identifier(String::from("todo")))
+    Ok(Statement::Return(Expression::Identifier(String::from(
+      "todo",
+    ))))
   }
 
-  fn parse_let_statement(&mut self) -> Statement {
+  fn parse_let_statement(&mut self) -> Result<Statement, String> {
     let token = self.next_token().cloned().unwrap();
 
     let identifier = self.consume_with_value(Token::Identifier);
@@ -175,88 +174,110 @@ impl Parser {
 
     self.consume(Token::Semicolon);
 
-    Statement::Let(LetStatement { token, identifier })
+    Ok(Statement::Let(LetStatement { token, identifier }))
   }
 }
 
-#[test]
-fn parse_let_statement() {
-  let test_cases = vec![(
-    "let x = 5;",
-    vec![Statement::Let(LetStatement {
-      token: Token::Let,
-      identifier: Token::Identifier(String::from("x")),
-    })],
-  )];
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::lexer::Lexer;
 
-  for (input, expected_statements) in test_cases {
-    let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+  #[test]
+  fn parse_let_statement() {
+    let test_cases = vec![(
+      "let x = 5;",
+      vec![Statement::Let(LetStatement {
+        token: Token::Let,
+        identifier: Token::Identifier(String::from("x")),
+      })],
+    )];
 
-    assert_eq!(parser.parse(), expected_statements);
+    for (input, expected_statements) in test_cases {
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+
+      assert_eq!(parser.parse(), expected_statements);
+    }
   }
-}
 
-#[test]
-fn parse_let_statement_error() {
-  let test_cases = vec![
-    ("let x = 5", "expected Semicolon, got Eof"),
-    ("let x 5;", "expected Assign, got Number(\"5\")"),
-    ("let = 5;", "expected Identifier(\"_\"), got Assign"),
-  ];
+  #[test]
+  fn parse_let_statement_error() {
+    let test_cases = vec![
+      ("let x = 5", "expected Semicolon, got Eof"),
+      ("let x 5;", "expected Assign, got Number(\"5\")"),
+      ("let = 5;", "expected Identifier(\"_\"), got Assign"),
+    ];
 
-  for (input, expected_error) in test_cases {
-    let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+    for (input, expected_error) in test_cases {
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
 
-    parser.parse();
+      parser.parse();
 
-    assert_eq!(parser.errors[0], expected_error);
+      assert_eq!(parser.errors[0], expected_error);
+    }
   }
-}
 
-#[test]
-fn parse_return_statement() {
-  let test_cases = vec![
-    (
-      "return 5;",
-      Statement::Return(Expression::Identifier(String::from("todo"))),
-    ),
-    (
-      "return 10;",
-      Statement::Return(Expression::Identifier(String::from("todo"))),
-    ),
-  ];
+  #[test]
+  fn parse_return_statement() {
+    let test_cases = vec![
+      (
+        "return 5;",
+        Statement::Return(Expression::Identifier(String::from("todo"))),
+      ),
+      (
+        "return 10;",
+        Statement::Return(Expression::Identifier(String::from("todo"))),
+      ),
+    ];
 
-  for (input, expected_statement) in test_cases {
-    let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+    for (input, expected_statement) in test_cases {
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
 
-    assert_eq!(parser.parse()[0], expected_statement);
+      assert_eq!(parser.parse()[0], expected_statement);
+    }
   }
-}
 
-#[test]
-fn parse_return_statement_error() {
-  let test_cases = vec![("return 5", "expected Semicolon, got Eof")];
+  #[test]
+  fn parse_return_statement_error() {
+    let test_cases = vec![("return 5", "expected Semicolon, got Eof")];
 
-  for (input, expected_error) in test_cases {
-    let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+    for (input, expected_error) in test_cases {
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
 
-    parser.parse();
+      parser.parse();
 
-    assert_eq!(parser.errors[0], expected_error);
+      assert_eq!(parser.errors[0], expected_error);
+    }
   }
-}
 
-#[test]
-fn parse_identifier_expression() {
-  let test_cases = vec![
-    ("foobar", "Identifier(\"foobar\")"),
-    ("baz", "Identifier(\"baz\")"),
-    ("hello", "Identifier(\"hello\")"),
-  ];
+  #[test]
+  fn parse_identifier_expression() {
+    let test_cases = vec![
+      ("foobar", "Identifier(\"foobar\")"),
+      ("baz", "Identifier(\"baz\")"),
+      ("hello", "Identifier(\"hello\")"),
+    ];
 
-  for (input, expected) in test_cases {
-    let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+    for (input, expected) in test_cases {
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
 
-    assert_eq!(parser.parse()[0].to_string(), expected);
+      assert_eq!(parser.parse()[0].to_string(), expected);
+    }
+  }
+
+  #[test]
+  fn parse_number_expression() {
+    let test_cases = vec![
+      ("50", "Number(50.0)"),
+      ("10", "Number(10.0)"),
+      ("3", "Number(3.0)"),
+      ("0", "Number(0.0)"),
+    ];
+
+    for (input, expected) in test_cases {
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+
+      assert_eq!(parser.parse()[0].to_string(), expected);
+    }
   }
 }

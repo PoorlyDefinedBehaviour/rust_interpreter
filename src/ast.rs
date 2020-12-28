@@ -4,12 +4,14 @@ use std::fmt;
 #[derive(Debug, PartialEq)]
 pub enum Expression {
   Identifier(String),
+  Number(f64),
 }
 
 impl fmt::Display for Expression {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     match self {
       Expression::Identifier(identifier) => write!(f, "Identifier({:?})", identifier),
+      Expression::Number(number) => write!(f, "Number({:?})", number),
     }
   }
 }

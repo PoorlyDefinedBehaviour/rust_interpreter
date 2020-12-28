@@ -111,36 +111,64 @@ impl Lexer {
   }
 }
 
-#[test]
-fn let_statements() {
-  let test_cases: Vec<(&str, Vec<Token>)> = vec![
-    (
-      "let five = 5;",
-      vec![
-        Token::Let,
-        Token::Identifier(String::from("five")),
-        Token::Assign,
-        Token::Number(String::from("5")),
-        Token::Semicolon,
-        Token::Eof,
-      ],
-    ),
-    (
-      "let ten = 10;",
-      vec![
-        Token::Let,
-        Token::Identifier(String::from("ten")),
-        Token::Assign,
-        Token::Number(String::from("10")),
-        Token::Semicolon,
-        Token::Eof,
-      ],
-    ),
-  ];
+#[cfg(test)]
+mod tests {
+  use super::*;
 
-  for (input, expected_tokens) in test_cases {
-    let mut lexer = Lexer::new(String::from(input));
+  #[test]
+  fn let_statements() {
+    let test_cases: Vec<(&str, Vec<Token>)> = vec![
+      (
+        "let five = 5;",
+        vec![
+          Token::Let,
+          Token::Identifier(String::from("five")),
+          Token::Assign,
+          Token::Number(String::from("5")),
+          Token::Semicolon,
+          Token::Eof,
+        ],
+      ),
+      (
+        "let ten = 10;",
+        vec![
+          Token::Let,
+          Token::Identifier(String::from("ten")),
+          Token::Assign,
+          Token::Number(String::from("10")),
+          Token::Semicolon,
+          Token::Eof,
+        ],
+      ),
+    ];
 
-    assert_eq!(expected_tokens, lexer.lex());
+    for (input, expected_tokens) in test_cases {
+      let mut lexer = Lexer::new(String::from(input));
+
+      assert_eq!(expected_tokens, lexer.lex());
+    }
+  }
+
+  #[test]
+  fn returns_illegal_token_for_illegal_characters() {
+    let test_cases: Vec<(&str, Vec<Token>)> = vec![
+      ("let ?", vec![Token::Let, Token::Illegal('?'), Token::Eof]),
+      ("@", vec![Token::Illegal('@'), Token::Eof]),
+      (
+        "@@@",
+        vec![
+          Token::Illegal('@'),
+          Token::Illegal('@'),
+          Token::Illegal('@'),
+          Token::Eof,
+        ],
+      ),
+    ];
+
+    for (input, expected_tokens) in test_cases {
+      let mut lexer = Lexer::new(String::from(input));
+
+      assert_eq!(expected_tokens, lexer.lex());
+    }
   }
 }
