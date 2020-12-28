@@ -192,7 +192,7 @@ impl Parser {
     let mut token = self.next_token().cloned().unwrap();
 
     match self.prefix_parselets.get(&std::mem::discriminant(&token)) {
-      None => return Err(format!("no prefix parselet found for {:?}", token)),
+      None => Err(format!("no prefix parselet found for {:?}", token)),
       Some(prefix_parselet) => {
         let mut left = prefix_parselet(self, token);
 
