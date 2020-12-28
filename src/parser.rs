@@ -7,16 +7,22 @@ struct Precedence;
 
 impl Precedence {
   pub const NONE: i32 = 0;
-  pub const TERM: i32 = 6;
+  pub const EQUALITY: i32 = 4; // == !=
+  pub const COMPARISON: i32 = 5; // < > <= >=
+  pub const TERM: i32 = 6; // + -
+  pub const FACTOR: i32 = 7; // * /
+  pub const UNARY: i32 = 8; // ! -
 }
 
 type PrefixParselet = fn(&mut Parser, Token) -> Expression;
+type InfixParselet = fn(&mut Parser, Expression, Token) -> Expression;
 
 pub struct Parser {
   current_position: usize,
   tokens: Vec<Token>,
   errors: Vec<String>,
   prefix_parselets: HashMap<std::mem::Discriminant<Token>, PrefixParselet>,
+  infix_parselets: HashMap<std::mem::Discriminant<Token>, InfixParselet>,
 }
 
 impl Parser {
@@ -25,6 +31,7 @@ impl Parser {
       current_position: 0,
       errors: vec![],
       prefix_parselets: HashMap::new(),
+      infix_parselets: HashMap::new(),
       tokens,
     };
 
@@ -46,6 +53,46 @@ impl Parser {
     parser.prefix(
       std::mem::discriminant(&Token::Bang),
       Parser::parse_prefix_expression,
+    );
+
+    parser.infix(
+      std::mem::discriminant(&Token::Plus),
+      Parser::parse_infix_expression,
+    );
+
+    parser.infix(
+      std::mem::discriminant(&Token::Minus),
+      Parser::parse_infix_expression,
+    );
+
+    parser.infix(
+      std::mem::discriminant(&Token::Slash),
+      Parser::parse_infix_expression,
+    );
+
+    parser.infix(
+      std::mem::discriminant(&Token::Star),
+      Parser::parse_infix_expression,
+    );
+
+    parser.infix(
+      std::mem::discriminant(&Token::Equal),
+      Parser::parse_infix_expression,
+    );
+
+    parser.infix(
+      std::mem::discriminant(&Token::NotEqual),
+      Parser::parse_infix_expression,
+    );
+
+    parser.infix(
+      std::mem::discriminant(&Token::GreaterThan),
+      Parser::parse_infix_expression,
+    );
+
+    parser.infix(
+      std::mem::discriminant(&Token::LessThan),
+      Parser::parse_infix_expression,
     );
 
     parser
@@ -70,8 +117,16 @@ impl Parser {
     self.prefix_parselets.insert(token, parselet);
   }
 
+  fn infix(&mut self, token: std::mem::Discriminant<Token>, parselet: InfixParselet) {
+    self.infix_parselets.insert(token, parselet);
+  }
+
   fn current_token(&self) -> Option<&Token> {
     self.tokens.get(self.current_position)
+  }
+
+  fn has_tokens_to_parse(&self) -> bool {
+    self.current_position < self.tokens.len() - 1
   }
 
   fn next_token(&mut self) -> Option<&Token> {
@@ -112,6 +167,16 @@ impl Parser {
     token
   }
 
+  fn current_token_precedence(&self) -> i32 {
+    match self.current_token() {
+      Some(Token::GreaterThan) | Some(Token::LessThan) => Precedence::COMPARISON,
+      Some(Token::Assign) | Some(Token::NotEqual) => Precedence::EQUALITY,
+      Some(Token::Plus) | Some(Token::Minus) => Precedence::TERM,
+      Some(Token::Star) | Some(Token::Slash) => Precedence::FACTOR,
+      _ => Precedence::NONE,
+    }
+  }
+
   fn parse_statement(&mut self) -> Result<Statement, String> {
     match self.current_token() {
       Some(Token::Let) => self.parse_let_statement(),
@@ -123,27 +188,57 @@ impl Parser {
     }
   }
 
-  fn parse_expression_statement(&mut self, _precedence: i32) -> Result<Expression, String> {
-    let token = self.next_token().cloned().unwrap();
+  fn parse_expression_statement(&mut self, precedence: i32) -> Result<Expression, String> {
+    let mut token = self.next_token().cloned().unwrap();
 
-    println!("aaaaaaa 1, {:?}", token);
+    let prefix_parselet = self.prefix_parselets.get(&std::mem::discriminant(&token));
 
-    match self.prefix_parselets.get(&std::mem::discriminant(&token)) {
-      Some(parselet) => {
-        let p = parselet(self, token);
-        println!("aaaaa token {:?}", p);
-        Ok(p)
+    if prefix_parselet.is_none() {
+      return Err(format!("no prefix parselet found for {:?}", token));
+    }
+
+    let mut left = prefix_parselet.unwrap()(self, token);
+
+    loop {
+      let current_token = self.current_token();
+
+      if precedence > self.current_token_precedence()
+        || current_token.is_none()
+        || *current_token.unwrap() == Token::Semicolon
+        || !self.has_tokens_to_parse()
+      {
+        return Ok(left);
       }
-      None => Err(format!("no prefix parselet found for {:?}", token)),
+
+      token = self.next_token().cloned().unwrap();
+
+      let infix_parselet = self
+        .infix_parselets
+        .get(&std::mem::discriminant(&token))
+        .unwrap();
+
+      left = infix_parselet(self, left, token);
     }
   }
 
   fn parse_prefix_expression(&mut self, token: Token) -> Expression {
-    let operand = self.parse_expression_statement(Precedence::TERM).unwrap();
+    let operand = self.parse_expression_statement(Precedence::UNARY).unwrap();
 
     Expression::Prefix(PrefixExpression {
       operator: token,
       operand: Box::new(operand),
+    })
+  }
+
+  fn parse_infix_expression(&mut self, left_operand: Expression, token: Token) -> Expression {
+    let right_operand = self
+      .parse_expression_statement(self.current_token_precedence())
+      .unwrap();
+
+    Expression::Infix(InfixExpression {
+      left_operand: Box::new(left_operand),
+      operator: token,
+      right_operand: Box::new(right_operand),
     })
   }
 
@@ -306,10 +401,28 @@ mod tests {
   }
 
   #[test]
-  fn parse_prefix_operators() {
+  fn parse_prefix_expressions() {
     let test_cases = vec![
       ("!5", "(Bang Number(5.0))"),
       ("-15", "(Minus Number(15.0))"),
+    ];
+
+    for (input, expected) in test_cases {
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+
+      assert_eq!(parser.parse()[0].to_string(), expected);
+    }
+  }
+
+  #[test]
+  fn parse_infix_expressions() {
+    let test_cases = vec![
+      ("5 + 5", "(Number(5.0) Plus Number(5.0))"),
+      ("5 - 5", "(Number(5.0) Minus Number(5.0))"),
+      ("5 * 5", "(Number(5.0) Star Number(5.0))"),
+      ("5 / 5", "(Number(5.0) Slash Number(5.0))"),
+      ("5 > 5", "(Number(5.0) GreaterThan Number(5.0))"),
+      ("5 < 5", "(Number(5.0) LessThan Number(5.0))"),
     ];
 
     for (input, expected) in test_cases {
