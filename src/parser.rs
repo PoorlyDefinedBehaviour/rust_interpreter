@@ -191,33 +191,32 @@ impl Parser {
   fn parse_expression_statement(&mut self, precedence: i32) -> Result<Expression, String> {
     let mut token = self.next_token().cloned().unwrap();
 
-    let prefix_parselet = self.prefix_parselets.get(&std::mem::discriminant(&token));
+    match self.prefix_parselets.get(&std::mem::discriminant(&token)) {
+      None => return Err(format!("no prefix parselet found for {:?}", token)),
+      Some(prefix_parselet) => {
+        let mut left = prefix_parselet(self, token);
 
-    if prefix_parselet.is_none() {
-      return Err(format!("no prefix parselet found for {:?}", token));
-    }
+        loop {
+          let current_token = self.current_token();
 
-    let mut left = prefix_parselet.unwrap()(self, token);
+          if precedence > self.current_token_precedence()
+            || current_token.is_none()
+            || *current_token.unwrap() == Token::Semicolon
+            || !self.has_tokens_to_parse()
+          {
+            return Ok(left);
+          }
 
-    loop {
-      let current_token = self.current_token();
+          token = self.next_token().cloned().unwrap();
 
-      if precedence > self.current_token_precedence()
-        || current_token.is_none()
-        || *current_token.unwrap() == Token::Semicolon
-        || !self.has_tokens_to_parse()
-      {
-        return Ok(left);
+          let infix_parselet = self
+            .infix_parselets
+            .get(&std::mem::discriminant(&token))
+            .unwrap();
+
+          left = infix_parselet(self, left, token);
+        }
       }
-
-      token = self.next_token().cloned().unwrap();
-
-      let infix_parselet = self
-        .infix_parselets
-        .get(&std::mem::discriminant(&token))
-        .unwrap();
-
-      left = infix_parselet(self, left, token);
     }
   }
 
