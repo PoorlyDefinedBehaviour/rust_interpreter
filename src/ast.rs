@@ -66,7 +66,7 @@ impl fmt::Display for LetStatement {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     match &self.identifier {
       Token::Identifier(identifier) => {
-        write!(f, "let {} = ", identifier);
+        write!(f, "let {} = ", identifier)?;
         self.value.fmt(f)
       }
       _ => unreachable!(),
@@ -86,7 +86,7 @@ impl fmt::Display for Statement {
     match self {
       Statement::Let(statement) => statement.fmt(f),
       Statement::Return(statement) => {
-        write!(f, "return ");
+        write!(f, "return ")?;
         statement.fmt(f)
       }
       Statement::Expression(statement) => statement.fmt(f),

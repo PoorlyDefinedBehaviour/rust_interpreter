@@ -113,12 +113,11 @@ impl Parser {
 
     loop {
       match self.current_token() {
-        Some(Token::Eof) => break,
+        Some(Token::Eof) | None => break,
         Some(_) => match self.parse_statement() {
           Ok(statement) => statements.push(statement),
           Err(message) => self.errors.push(message),
         },
-        None => break,
       }
     }
 
