@@ -1,6 +1,22 @@
 use crate::token::*;
 use std::fmt;
 
+#[derive(Debug)]
+pub struct Program {
+  pub errors: Vec<String>,
+  pub statements: Vec<Statement>,
+}
+
+impl fmt::Display for Program {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    for statement in &self.statements {
+      statement.fmt(f)?;
+    }
+
+    Ok(())
+  }
+}
+
 #[derive(Debug, PartialEq)]
 pub struct PrefixExpression {
   pub operator: Token,
@@ -25,18 +41,16 @@ pub enum Expression {
 impl fmt::Display for Expression {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     match self {
-      Expression::Identifier(identifier) => write!(f, "Identifier({:?})", identifier),
-      Expression::Number(number) => write!(f, "Number({:?})", number),
+      Expression::Identifier(identifier) => write!(f, "{}", identifier),
+      Expression::Number(number) => write!(f, "{}", number),
       Expression::Prefix(expression) => {
-        write!(f, "({:?} {:?})", expression.operator, expression.operand)
+        write!(f, "({} {})", expression.operator, expression.operand)
       }
-      Expression::Infix(expression) => {
-        write!(
-          f,
-          "({:?} {:?} {:?})",
-          expression.left_operand, expression.operator, expression.right_operand
-        )
-      }
+      Expression::Infix(expression) => write!(
+        f,
+        "({} {} {})",
+        expression.left_operand, expression.operator, expression.right_operand
+      ),
     }
   }
 }
@@ -45,13 +59,16 @@ impl fmt::Display for Expression {
 pub struct LetStatement {
   pub token: Token,
   pub identifier: Token,
-  //value: Expression,
+  pub value: Expression,
 }
 
 impl fmt::Display for LetStatement {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     match &self.identifier {
-      Token::Identifier(identifier) => write!(f, "Token({:?})", identifier),
+      Token::Identifier(identifier) => {
+        write!(f, "let {} = ", identifier)?;
+        self.value.fmt(f)
+      }
       _ => unreachable!(),
     }
   }
@@ -68,14 +85,11 @@ impl fmt::Display for Statement {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     match self {
       Statement::Let(statement) => statement.fmt(f),
-      Statement::Return(statement) => statement.fmt(f),
+      Statement::Return(statement) => {
+        write!(f, "return ")?;
+        statement.fmt(f)
+      }
       Statement::Expression(statement) => statement.fmt(f),
     }
   }
-}
-
-#[derive(Debug)]
-pub struct Program {
-  pub statements: Vec<Statement>,
-  pub errors: Vec<String>,
 }

@@ -84,24 +84,48 @@ impl Lexer {
       .collect()
   }
 
+  fn next_character_is(&self, expected_character: char) -> bool {
+    if self.next_position >= self.source_code.len() {
+      return false;
+    }
+
+    let character = self.source_code.chars().nth(self.next_position).unwrap();
+
+    character == expected_character
+  }
+
   fn next_token(&mut self) -> Token {
     self.skip_whitespace();
 
     let token = match self.character {
-      '=' => Token::Assign,
       ';' => Token::Semicolon,
       '(' => Token::LeftParen,
       ')' => Token::RightParen,
       ',' => Token::Comma,
       '+' => Token::Plus,
       '-' => Token::Minus,
-      '!' => Token::Bang,
       '{' => Token::LeftBrace,
       '}' => Token::RightBrace,
       '*' => Token::Star,
       '/' => Token::Slash,
       '>' => Token::GreaterThan,
       '<' => Token::LessThan,
+      '!' => {
+        if self.next_character_is('=') {
+          self.read_character();
+          Token::NotEqual
+        } else {
+          Token::Bang
+        }
+      }
+      '=' => {
+        if self.next_character_is('=') {
+          self.read_character();
+          Token::Equal
+        } else {
+          Token::Assign
+        }
+      }
       '\0' => Token::Eof,
       character if character.is_alphabetic() => {
         let identifier = self.read_identifier();
@@ -195,6 +219,20 @@ mod tests {
       ("/", vec![Token::Slash, Token::Eof]),
       (">", vec![Token::GreaterThan, Token::Eof]),
       ("<", vec![Token::LessThan, Token::Eof]),
+    ];
+
+    for (input, expected_tokens) in test_cases {
+      let mut lexer = Lexer::new(String::from(input));
+
+      assert_eq!(expected_tokens, lexer.lex());
+    }
+  }
+
+  #[test]
+  fn double_character_tokens() {
+    let test_cases: Vec<(&str, Vec<Token>)> = vec![
+      ("==", vec![Token::Equal, Token::Eof]),
+      ("!=", vec![Token::NotEqual, Token::Eof]),
     ];
 
     for (input, expected_tokens) in test_cases {
