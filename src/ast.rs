@@ -7,14 +7,6 @@ pub struct PrefixExpression {
   pub operand: Box<Expression>,
 }
 
-impl fmt::Display for PrefixExpression {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    let formatted_operand = (*self.operand).fmt(f).unwrap();
-
-    write!(f, "({:?} ${:?})", self.operator, formatted_operand)
-  }
-}
-
 #[derive(Debug, PartialEq)]
 pub enum Expression {
   Identifier(String),
