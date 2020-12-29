@@ -12,14 +12,19 @@ impl Precedence {
   pub const TERM: i32 = 6; // + -
   pub const FACTOR: i32 = 7; // * /
   pub const UNARY: i32 = 8; // ! -
+  pub const CALL: i32 = 9; // . () |>
 }
 
 fn token_precedence(token: Option<&Token>) -> i32 {
   match token {
-    Some(Token::GreaterThan) | Some(Token::LessThan) => Precedence::COMPARISON,
+    Some(Token::GreaterThan)
+    | Some(Token::LessThan)
+    | Some(Token::GreaterThanOrEqual)
+    | Some(Token::LessThanOrEqual) => Precedence::COMPARISON,
     Some(Token::Assign) | Some(Token::Equal) | Some(Token::NotEqual) => Precedence::EQUALITY,
     Some(Token::Plus) | Some(Token::Minus) => Precedence::TERM,
     Some(Token::Star) | Some(Token::Slash) => Precedence::FACTOR,
+    Some(Token::Pipe) => Precedence::CALL,
     _ => Precedence::NONE,
   }
 }
@@ -106,6 +111,21 @@ impl Parser {
 
     parser.infix(
       std::mem::discriminant(&Token::LessThan),
+      Parser::parse_infix_expression,
+    );
+
+    parser.infix(
+      std::mem::discriminant(&Token::GreaterThanOrEqual),
+      Parser::parse_infix_expression,
+    );
+
+    parser.infix(
+      std::mem::discriminant(&Token::LessThanOrEqual),
+      Parser::parse_infix_expression,
+    );
+
+    parser.infix(
+      std::mem::discriminant(&Token::Pipe),
       Parser::parse_infix_expression,
     );
 
@@ -429,6 +449,14 @@ mod tests {
       ("5 / 5", "(5 / 5)"),
       ("5 > 5", "(5 > 5)"),
       ("5 < 5", "(5 < 5)"),
+      ("5 == 5", "(5 == 5)"),
+      ("5 != 5", "(5 != 5)"),
+      ("5 <= 5", "(5 <= 5)"),
+      ("5 >= 5", "(5 >= 5)"),
+      ("x |> f", "(x |> f)"),
+      ("a <= b |> f", "(a <= (b |> f))"),
+      ("a |> f |> g", "((a |> f) |> g)"),
+      ("a |> f > x", "((a |> f) > x)"),
     ];
 
     for (input, expected) in test_cases {

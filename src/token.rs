@@ -27,6 +27,9 @@ pub enum Token {
   Return,
   True,
   False,
+  GreaterThanOrEqual,
+  LessThanOrEqual,
+  Pipe,
 }
 
 impl fmt::Display for Token {
@@ -57,6 +60,9 @@ impl fmt::Display for Token {
       Token::Return => write!(f, "return"),
       Token::True => write!(f, "true"),
       Token::False => write!(f, "false"),
+      Token::GreaterThanOrEqual => write!(f, ">="),
+      Token::LessThanOrEqual => write!(f, "<="),
+      Token::Pipe => write!(f, "|>"),
     }
   }
 }

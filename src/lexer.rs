@@ -124,8 +124,30 @@ impl Lexer {
       '}' => Token::RightBrace,
       '*' => Token::Star,
       '/' => Token::Slash,
-      '>' => Token::GreaterThan,
-      '<' => Token::LessThan,
+      '|' => {
+        if self.next_character_is('>') {
+          self.read_character();
+          Token::Pipe
+        } else {
+          Token::Illegal(self.character)
+        }
+      }
+      '>' => {
+        if self.next_character_is('=') {
+          self.read_character();
+          Token::GreaterThanOrEqual
+        } else {
+          Token::GreaterThan
+        }
+      }
+      '<' => {
+        if self.next_character_is('=') {
+          self.read_character();
+          Token::LessThanOrEqual
+        } else {
+          Token::LessThan
+        }
+      }
       '!' => {
         if self.next_character_is('=') {
           self.read_character();
@@ -249,6 +271,9 @@ mod tests {
     let test_cases: Vec<(&str, Vec<Token>)> = vec![
       ("==", vec![Token::Equal, Token::Eof]),
       ("!=", vec![Token::NotEqual, Token::Eof]),
+      (">=", vec![Token::GreaterThanOrEqual, Token::Eof]),
+      ("<=", vec![Token::LessThanOrEqual, Token::Eof]),
+      ("|>", vec![Token::Pipe, Token::Eof]),
     ];
 
     for (input, expected_tokens) in test_cases {
