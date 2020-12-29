@@ -36,6 +36,7 @@ pub enum Expression {
   Number(f64),
   Prefix(PrefixExpression),
   Infix(InfixExpression),
+  Boolean(bool),
 }
 
 impl fmt::Display for Expression {
@@ -51,6 +52,7 @@ impl fmt::Display for Expression {
         "({} {} {})",
         expression.left_operand, expression.operator, expression.right_operand
       ),
+      Expression::Boolean(boolean) => write!(f, "{}", boolean),
     }
   }
 }
