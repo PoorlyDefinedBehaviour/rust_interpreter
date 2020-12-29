@@ -317,6 +317,41 @@ mod tests {
       ("fn", vec![Token::Function, Token::Eof]),
       ("true", vec![Token::True, Token::Eof]),
       ("false", vec![Token::False, Token::Eof]),
+      ("if", vec![Token::If, Token::Eof]),
+      ("else", vec![Token::Else, Token::Eof]),
+      (
+        "if(x > 3) {}",
+        vec![
+          Token::If,
+          Token::LeftParen,
+          Token::Identifier(String::from("x")),
+          Token::GreaterThan,
+          Token::Number(String::from("3")),
+          Token::RightParen,
+          Token::LeftBrace,
+          Token::RightBrace,
+          Token::Eof,
+        ],
+      ),
+      (
+        "if(x > 3) { a } else { b }",
+        vec![
+          Token::If,
+          Token::LeftParen,
+          Token::Identifier(String::from("x")),
+          Token::GreaterThan,
+          Token::Number(String::from("3")),
+          Token::RightParen,
+          Token::LeftBrace,
+          Token::Identifier(String::from("a")),
+          Token::RightBrace,
+          Token::Else,
+          Token::LeftBrace,
+          Token::Identifier(String::from("b")),
+          Token::RightBrace,
+          Token::Eof,
+        ],
+      ),
     ];
 
     for (input, expected_tokens) in test_cases {

@@ -30,6 +30,8 @@ pub enum Token {
   GreaterThanOrEqual,
   LessThanOrEqual,
   Pipe,
+  If,
+  Else,
 }
 
 impl fmt::Display for Token {
@@ -63,6 +65,8 @@ impl fmt::Display for Token {
       Token::GreaterThanOrEqual => write!(f, ">="),
       Token::LessThanOrEqual => write!(f, "<="),
       Token::Pipe => write!(f, "|>"),
+      Token::If => write!(f, "if"),
+      Token::Else => write!(f, "else"),
     }
   }
 }
@@ -74,6 +78,8 @@ pub fn lookup_identifier(lexeme: String) -> Token {
     "return" => Token::Return,
     "true" => Token::True,
     "false" => Token::False,
+    "if" => Token::If,
+    "else" => Token::Else,
     _ => Token::Identifier(lexeme),
   }
 }
