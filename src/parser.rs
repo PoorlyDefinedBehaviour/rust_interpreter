@@ -79,6 +79,11 @@ impl Parser {
       Parser::parse_grouped_expression,
     );
 
+    parser.prefix(
+      std::mem::discriminant(&Token::If),
+      Parser::parse_if_expression,
+    );
+
     parser.infix(
       std::mem::discriminant(&Token::Plus),
       Parser::parse_infix_expression,
@@ -273,6 +278,51 @@ impl Parser {
     self.consume(Token::RightParen);
 
     expression
+  }
+
+  fn parse_if_expression(&mut self, _token: &Token) -> Expression {
+    self.consume(Token::LeftParen);
+
+    let condition = self.parse_expression_statement(Precedence::NONE).unwrap();
+
+    self.consume(Token::RightParen);
+
+    let consequence = self.parse_block_statement();
+
+    let alternative = match self.current_token() {
+      Some(Token::Else) => {
+        self.next_token();
+
+        Some(Box::new(self.parse_block_statement()))
+      }
+      _ => None,
+    };
+
+    Expression::If(IfExpression {
+      condition: Box::new(condition),
+      consequence: Box::new(consequence),
+      alternative,
+    })
+  }
+
+  fn parse_block_statement(&mut self) -> Statement {
+    self.consume(Token::LeftBrace);
+
+    let mut statements: Vec<Statement> = vec![];
+
+    loop {
+      match self.current_token() {
+        Some(Token::RightBrace) | Some(Token::Eof) | None => break,
+        _ => match self.parse_statement() {
+          Ok(statement) => statements.push(statement),
+          Err(message) => self.errors.push(message),
+        },
+      }
+    }
+
+    self.consume(Token::RightBrace);
+
+    Statement::Block(statements)
   }
 
   fn parse_identifier(&mut self, token: &Token) -> Expression {
@@ -493,6 +543,24 @@ mod tests {
 
     for (input, expected) in test_cases {
       let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+      assert_eq!(parser.parse().to_string(), expected);
+    }
+  }
+
+  #[test]
+  fn parse_if_expression() {
+    let test_cases = vec![
+      ("if(x > 5) { a }", "(if ((x > 5)) { a })"),
+      (
+        "if(x > 5) { a } else { b }",
+        "(if ((x > 5)) { a } else { b })",
+      ),
+      ("if (true) { 2 + 2 * 3 }", "(if (true) { (2 + (2 * 3)) })"),
+    ];
+
+    for (input, expected) in test_cases {
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+
       assert_eq!(parser.parse().to_string(), expected);
     }
   }

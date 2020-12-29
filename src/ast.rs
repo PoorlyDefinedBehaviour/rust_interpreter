@@ -33,7 +33,7 @@ pub struct InfixExpression {
 pub struct IfExpression {
   pub condition: Box<Expression>,
   pub consequence: Box<Statement>,
-  pub alternative: Box<Statement>,
+  pub alternative: Option<Box<Statement>>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -60,11 +60,19 @@ impl fmt::Display for Expression {
         expression.left_operand, expression.operator, expression.right_operand
       ),
       Expression::Boolean(boolean) => write!(f, "{}", boolean),
-      Expression::If(expression) => write!(
-        f,
-        "({} {} {})",
-        expression.condition, expression.consequence, expression.alternative
-      ),
+      Expression::If(expression) => {
+        write!(
+          f,
+          "(if ({}) {}",
+          expression.condition, expression.consequence
+        )?;
+
+        if let Some(expression) = &expression.alternative {
+          write!(f, " else {})", expression)
+        } else {
+          write!(f, ")")
+        }
+      }
     }
   }
 }
@@ -106,13 +114,13 @@ impl fmt::Display for Statement {
       }
       Statement::Expression(statement) => statement.fmt(f),
       Statement::Block(statements) => {
-        write!(f, "{{")?;
+        write!(f, "{{ ")?;
 
         for statement in statements {
           statement.fmt(f)?;
         }
 
-        write!(f, "}}")
+        write!(f, " }}")
       }
     }
   }
