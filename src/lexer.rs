@@ -48,6 +48,14 @@ impl Lexer {
     self.next_position += 1;
   }
 
+  fn peek_character(&self) -> char {
+    if self.next_position >= self.source_code.len() {
+      '\0'
+    } else {
+      self.source_code.chars().nth(self.next_position).unwrap()
+    }
+  }
+
   fn skip_whitespace(&mut self) {
     while self.character.is_ascii_whitespace() {
       self.read_character();
@@ -74,6 +82,14 @@ impl Lexer {
 
     while self.character.is_digit(10) {
       self.read_character();
+    }
+
+    if self.character == '.' && self.peek_character().is_digit(10) {
+      self.read_character();
+
+      while self.character.is_digit(10) {
+        self.read_character();
+      }
     }
 
     self
@@ -291,6 +307,36 @@ mod tests {
       (
         "4124421311",
         vec![Token::Number(String::from("4124421311")), Token::Eof],
+      ),
+      ("1.0", vec![Token::Number(String::from("1.0")), Token::Eof]),
+      ("0.5", vec![Token::Number(String::from("0.5")), Token::Eof]),
+      (
+        "432342343.43",
+        vec![Token::Number(String::from("432342343.43")), Token::Eof],
+      ),
+      (
+        "-0.5",
+        vec![Token::Minus, Token::Number(String::from("0.5")), Token::Eof],
+      ),
+      (
+        "-0",
+        vec![Token::Minus, Token::Number(String::from("0")), Token::Eof],
+      ),
+      (
+        "-241249129414141241.512521521512",
+        vec![
+          Token::Minus,
+          Token::Number(String::from("241249129414141241.512521521512")),
+          Token::Eof,
+        ],
+      ),
+      (
+        "-59.42",
+        vec![
+          Token::Minus,
+          Token::Number(String::from("59.42")),
+          Token::Eof,
+        ],
       ),
     ];
 
