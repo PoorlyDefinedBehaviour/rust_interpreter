@@ -29,6 +29,12 @@ pub struct InfixExpression {
   pub operator: Token,
   pub right_operand: Box<Expression>,
 }
+#[derive(Debug, PartialEq)]
+pub struct IfExpression {
+  pub condition: Box<Expression>,
+  pub consequence: Box<Statement>,
+  pub alternative: Box<Statement>,
+}
 
 #[derive(Debug, PartialEq)]
 pub enum Expression {
@@ -37,6 +43,7 @@ pub enum Expression {
   Prefix(PrefixExpression),
   Infix(InfixExpression),
   Boolean(bool),
+  If(IfExpression),
 }
 
 impl fmt::Display for Expression {
@@ -53,6 +60,11 @@ impl fmt::Display for Expression {
         expression.left_operand, expression.operator, expression.right_operand
       ),
       Expression::Boolean(boolean) => write!(f, "{}", boolean),
+      Expression::If(expression) => write!(
+        f,
+        "({} {} {})",
+        expression.condition, expression.consequence, expression.alternative
+      ),
     }
   }
 }
@@ -81,6 +93,7 @@ pub enum Statement {
   Let(LetStatement),
   Return(Expression),
   Expression(Expression),
+  Block(Vec<Statement>),
 }
 
 impl fmt::Display for Statement {
@@ -92,6 +105,15 @@ impl fmt::Display for Statement {
         statement.fmt(f)
       }
       Statement::Expression(statement) => statement.fmt(f),
+      Statement::Block(statements) => {
+        write!(f, "{{")?;
+
+        for statement in statements {
+          statement.fmt(f)?;
+        }
+
+        write!(f, "}}")
+      }
     }
   }
 }
