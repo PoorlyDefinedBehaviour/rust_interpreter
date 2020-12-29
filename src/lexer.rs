@@ -314,6 +314,30 @@ mod tests {
         "432342343.43",
         vec![Token::Number(String::from("432342343.43")), Token::Eof],
       ),
+      (
+        "-0.5",
+        vec![Token::Minus, Token::Number(String::from("0.5")), Token::Eof],
+      ),
+      (
+        "-0",
+        vec![Token::Minus, Token::Number(String::from("0")), Token::Eof],
+      ),
+      (
+        "-241249129414141241.512521521512",
+        vec![
+          Token::Minus,
+          Token::Number(String::from("241249129414141241.512521521512")),
+          Token::Eof,
+        ],
+      ),
+      (
+        "-59.42",
+        vec![
+          Token::Minus,
+          Token::Number(String::from("59.42")),
+          Token::Eof,
+        ],
+      ),
     ];
 
     for (input, expected_tokens) in test_cases {
