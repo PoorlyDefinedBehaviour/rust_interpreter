@@ -241,4 +241,63 @@ mod tests {
       assert_eq!(expected_tokens, lexer.lex());
     }
   }
+
+  #[test]
+  fn identifiers() {
+    let test_cases: Vec<(&str, Vec<Token>)> = vec![
+      (
+        "hello",
+        vec![Token::Identifier(String::from("hello")), Token::Eof],
+      ),
+      (
+        "foo",
+        vec![Token::Identifier(String::from("foo")), Token::Eof],
+      ),
+      (
+        "bar",
+        vec![Token::Identifier(String::from("bar")), Token::Eof],
+      ),
+      ("x", vec![Token::Identifier(String::from("x")), Token::Eof]),
+      ("y", vec![Token::Identifier(String::from("y")), Token::Eof]),
+    ];
+
+    for (input, expected_tokens) in test_cases {
+      let mut lexer = Lexer::new(String::from(input));
+
+      assert_eq!(expected_tokens, lexer.lex());
+    }
+  }
+
+  #[test]
+  fn keywords() {
+    let test_cases: Vec<(&str, Vec<Token>)> = vec![
+      ("return", vec![Token::Return, Token::Eof]),
+      ("let", vec![Token::Let, Token::Eof]),
+      ("fn", vec![Token::Function, Token::Eof]),
+    ];
+
+    for (input, expected_tokens) in test_cases {
+      let mut lexer = Lexer::new(String::from(input));
+
+      assert_eq!(expected_tokens, lexer.lex());
+    }
+  }
+
+  #[test]
+  fn numbers() {
+    let test_cases: Vec<(&str, Vec<Token>)> = vec![
+      ("10", vec![Token::Number(String::from("10")), Token::Eof]),
+      ("0", vec![Token::Number(String::from("0")), Token::Eof]),
+      (
+        "4124421311",
+        vec![Token::Number(String::from("4124421311")), Token::Eof],
+      ),
+    ];
+
+    for (input, expected_tokens) in test_cases {
+      let mut lexer = Lexer::new(String::from(input));
+
+      assert_eq!(expected_tokens, lexer.lex());
+    }
+  }
 }
