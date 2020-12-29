@@ -25,6 +25,8 @@ pub enum Token {
   Function,
   Let,
   Return,
+  True,
+  False,
 }
 
 impl fmt::Display for Token {
@@ -53,6 +55,8 @@ impl fmt::Display for Token {
       Token::Function => write!(f, "fn()"),
       Token::Let => write!(f, "let"),
       Token::Return => write!(f, "return"),
+      Token::True => write!(f, "true"),
+      Token::False => write!(f, "false"),
     }
   }
 }
@@ -62,6 +66,8 @@ pub fn lookup_identifier(lexeme: String) -> Token {
     "let" => Token::Let,
     "fn" => Token::Function,
     "return" => Token::Return,
+    "true" => Token::True,
+    "false" => Token::False,
     _ => Token::Identifier(lexeme),
   }
 }

@@ -285,11 +285,13 @@ mod tests {
   }
 
   #[test]
-  fn keywords() {
+  fn keywords_and_special_values() {
     let test_cases: Vec<(&str, Vec<Token>)> = vec![
       ("return", vec![Token::Return, Token::Eof]),
       ("let", vec![Token::Let, Token::Eof]),
       ("fn", vec![Token::Function, Token::Eof]),
+      ("true", vec![Token::True, Token::Eof]),
+      ("false", vec![Token::False, Token::Eof]),
     ];
 
     for (input, expected_tokens) in test_cases {
