@@ -74,6 +74,11 @@ impl Parser {
       Parser::parse_prefix_expression,
     );
 
+    parser.prefix(
+      std::mem::discriminant(&Token::LeftParen),
+      Parser::parse_grouped_expression,
+    );
+
     parser.infix(
       std::mem::discriminant(&Token::Plus),
       Parser::parse_infix_expression,
@@ -260,6 +265,14 @@ impl Parser {
       operator: token.clone(),
       right_operand: Box::new(right_operand),
     })
+  }
+
+  fn parse_grouped_expression(&mut self, _token: &Token) -> Expression {
+    let expression = self.parse_expression_statement(Precedence::NONE).unwrap();
+
+    self.consume(Token::RightParen);
+
+    expression
   }
 
   fn parse_identifier(&mut self, token: &Token) -> Expression {
@@ -462,6 +475,24 @@ mod tests {
     for (input, expected) in test_cases {
       let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
 
+      assert_eq!(parser.parse().to_string(), expected);
+    }
+  }
+
+  #[test]
+  fn parse_grouped_expressions() {
+    let test_cases = vec![
+      ("1 + (2 + 3) + 4", "((1 + (2 + 3)) + 4)"),
+      ("(5 + 5) * 2", "((5 + 5) * 2)"),
+      ("2 / (5 + 5)", "(2 / (5 + 5))"),
+      ("-(5 + 5)", "(- (5 + 5))"),
+      ("!(true == true)", "(! (true == true))"),
+      ("(2 * 2) + 2", "((2 * 2) + 2)"),
+      ("2 + (2 * 2)", "(2 + (2 * 2))"),
+    ];
+
+    for (input, expected) in test_cases {
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
       assert_eq!(parser.parse().to_string(), expected);
     }
   }
