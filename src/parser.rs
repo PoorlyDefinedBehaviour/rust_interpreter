@@ -55,6 +55,10 @@ impl Parser {
       Parser::parse_number,
     );
 
+    parser.prefix(std::mem::discriminant(&Token::True), Parser::parse_boolean);
+
+    parser.prefix(std::mem::discriminant(&Token::False), Parser::parse_boolean);
+
     parser.prefix(
       std::mem::discriminant(&Token::Minus),
       Parser::parse_prefix_expression,
@@ -245,6 +249,14 @@ impl Parser {
     }
   }
 
+  fn parse_boolean(&mut self, token: &Token) -> Expression {
+    match token {
+      Token::True => Expression::Boolean(true),
+      Token::False => Expression::Boolean(false),
+      _ => unreachable!(),
+    }
+  }
+
   fn parse_number(&mut self, token: &Token) -> Expression {
     match &token {
       Token::Number(number) => Expression::Number(number.parse::<f64>().unwrap()),
@@ -311,6 +323,24 @@ mod tests {
       parser.parse();
 
       assert_eq!(parser.errors[0], expected_error);
+    }
+  }
+
+  #[test]
+  fn parse_booleans() {
+    let test_cases = vec![
+      ("let a = true;", "let a = true"),
+      ("let b = false", "let b = false"),
+      ("false > true", "(false > true)"),
+      ("false < true", "(false < true)"),
+      ("true", "true"),
+      ("false", "false"),
+    ];
+
+    for (input, expected) in test_cases {
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+
+      assert_eq!(parser.parse().to_string(), expected);
     }
   }
 
