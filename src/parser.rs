@@ -178,13 +178,6 @@ impl Parser {
     self.current_position < self.tokens.len() - 1
   }
 
-  fn current_token_is(&self, expected_token: Token) -> bool {
-    match self.current_token() {
-      Some(token) if token == &expected_token => true,
-      _ => false,
-    }
-  }
-
   fn current_token(&self) -> Option<&Token> {
     self.tokens.get(self.current_position)
   }
@@ -333,7 +326,9 @@ impl Parser {
 
     let mut parameters: Vec<Expression> = Vec::new();
 
-    while self.has_tokens_to_parse() && !self.current_token_is(Token::RightParen) {
+    while self.has_tokens_to_parse()
+      && !matches!(self.current_token(), Some(token) if token == &Token::RightParen)
+    {
       match self.next_token() {
         Some(Token::Comma) => {}
         Some(Token::Identifier(identifier)) => {
