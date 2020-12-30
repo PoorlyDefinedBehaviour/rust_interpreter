@@ -24,7 +24,7 @@ fn token_precedence(token: Option<&Token>) -> i32 {
     Some(Token::Assign) | Some(Token::Equal) | Some(Token::NotEqual) => Precedence::EQUALITY,
     Some(Token::Plus) | Some(Token::Minus) => Precedence::TERM,
     Some(Token::Star) | Some(Token::Slash) => Precedence::FACTOR,
-    Some(Token::Pipe) => Precedence::CALL,
+    Some(Token::Pipe) | Some(Token::LeftParen) => Precedence::CALL,
     _ => Precedence::NONE,
   }
 }
@@ -144,6 +144,11 @@ impl Parser {
       Parser::parse_infix_expression,
     );
 
+    parser.infix(
+      std::mem::discriminant(&Token::LeftParen),
+      Parser::parse_function_call_expression,
+    );
+
     parser
   }
 
@@ -243,6 +248,7 @@ impl Parser {
           if precedence >= token_precedence(self.current_token()) || !self.has_tokens_to_parse() {
             return Ok(left);
           }
+
           token = self.next_token().cloned().unwrap();
 
           let infix_parselet = self
@@ -347,6 +353,38 @@ impl Parser {
     parameters
   }
 
+  fn parse_function_call_expression(&mut self, function: Expression, _token: &Token) -> Expression {
+    let arguments = self.parse_function_call_arguments();
+
+    Expression::Call(CallExpression {
+      function: Box::new(function),
+      arguments,
+    })
+  }
+
+  fn parse_function_call_arguments(&mut self) -> Vec<Expression> {
+    let mut arguments: Vec<Expression> = Vec::new();
+
+    while self.has_tokens_to_parse()
+      && matches!(self.current_token(), Some(token) if token != &Token::RightParen)
+    {
+      match self.current_token() {
+        Some(Token::Comma) => {
+          self.next_token();
+        }
+        _ => {
+          let expression = self.parse_expression_statement(Precedence::NONE).unwrap();
+
+          arguments.push(expression);
+        }
+      }
+    }
+
+    self.consume(Token::RightParen);
+
+    arguments
+  }
+
   fn parse_block_statement(&mut self) -> Statement {
     self.consume(Token::LeftBrace);
 
@@ -394,8 +432,6 @@ impl Parser {
 
     let return_value = self.parse_expression_statement(Precedence::NONE)?;
 
-    self.consume(Token::Semicolon);
-
     Ok(Statement::Return(return_value))
   }
 
@@ -407,8 +443,6 @@ impl Parser {
     self.consume(Token::Assign);
 
     let value = self.parse_expression_statement(Precedence::NONE)?;
-
-    self.consume(Token::Semicolon);
 
     Ok(Statement::Let(LetStatement {
       token,
@@ -425,36 +459,38 @@ mod tests {
 
   #[test]
   fn parse_let_statement() {
-    let test_cases = vec![("let x = 5;", "let x = 5")];
+    let test_cases = vec![("let x = 5", "let x = 5")];
 
-    for (input, expected_statements) in test_cases {
+    for (input, expected) in test_cases {
       let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
 
-      assert_eq!(parser.parse().to_string(), expected_statements);
+      let program = parser.parse();
+
+      assert!(!program.has_errors());
+
+      assert_eq!(program.to_string(), expected);
     }
   }
 
   #[test]
   fn parse_let_statement_error() {
-    let test_cases = vec![
-      ("let x = 5", "expected Semicolon, got Eof"),
-      ("let x 5;", "expected Assign, got Number(\"5\")"),
-      ("let = 5;", "expected Identifier(\"_\"), got Assign"),
-    ];
+    let test_cases = vec![("let = 5;", "expected Identifier(\"_\"), got Assign")];
 
-    for (input, expected_error) in test_cases {
+    for (input, expected) in test_cases {
       let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
 
-      parser.parse();
+      let program = parser.parse();
 
-      assert_eq!(parser.errors[0], expected_error);
+      assert!(program.has_errors());
+
+      assert_eq!(program.errors[0], expected);
     }
   }
 
   #[test]
   fn parse_booleans() {
     let test_cases = vec![
-      ("let a = true;", "let a = true"),
+      ("let a = true", "let a = true"),
       ("let b = false", "let b = false"),
       ("false > true", "(false > true)"),
       ("false < true", "(false < true)"),
@@ -465,37 +501,32 @@ mod tests {
     for (input, expected) in test_cases {
       let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
 
-      assert_eq!(parser.parse().to_string(), expected);
+      let program = parser.parse();
+
+      assert!(!program.has_errors());
+
+      assert_eq!(program.to_string(), expected);
     }
   }
 
   #[test]
   fn parse_return_statement() {
     let test_cases = vec![
-      ("return 5;", "return 5"),
-      ("return 10;", "return 10"),
+      ("return 5", "return 5"),
+      ("return 10", "return 10"),
       ("return 2 + 2", "return (2 + 2)"),
       ("return 2 * 4 + c", "return ((2 * 4) + c)"),
       ("return -a -a -a", "return (((- a) - a) - a)"),
     ];
 
-    for (input, expected_statement) in test_cases {
+    for (input, expected) in test_cases {
       let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
 
-      assert_eq!(parser.parse().to_string(), expected_statement);
-    }
-  }
+      let program = parser.parse();
 
-  #[test]
-  fn parse_return_statement_error() {
-    let test_cases = vec![("return 5", "expected Semicolon, got Eof")];
+      assert!(!program.has_errors());
 
-    for (input, expected_error) in test_cases {
-      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
-
-      parser.parse();
-
-      assert_eq!(parser.errors[0], expected_error);
+      assert_eq!(program.to_string(), expected);
     }
   }
 
@@ -506,7 +537,11 @@ mod tests {
     for (input, expected) in test_cases {
       let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
 
-      assert_eq!(parser.parse().to_string(), expected);
+      let program = parser.parse();
+
+      assert!(!program.has_errors());
+
+      assert_eq!(program.to_string(), expected);
     }
   }
 
@@ -517,7 +552,11 @@ mod tests {
     for (input, expected) in test_cases {
       let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
 
-      assert_eq!(parser.parse().to_string(), expected);
+      let program = parser.parse();
+
+      assert!(!program.has_errors());
+
+      assert_eq!(program.to_string(), expected);
     }
   }
 
@@ -532,7 +571,12 @@ mod tests {
 
     for (input, expected) in test_cases {
       let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
-      assert_eq!(parser.parse().to_string(), expected);
+
+      let program = parser.parse();
+
+      assert!(!program.has_errors());
+
+      assert_eq!(program.to_string(), expected);
     }
   }
 
@@ -560,14 +604,19 @@ mod tests {
       ("a + b / c", "(a + (b / c))"),
       ("a / b + c", "((a / b) + c)"),
       ("a + b * c + d / e - f", "(((a + (b * c)) + (d / e)) - f)"),
-      ("3 + 4; -5 * 5", "(3 + 4)((- 5) * 5)"),
       ("5 > 4 == 3 < 4", "((5 > 4) == (3 < 4))"),
     ];
 
     for (input, expected) in test_cases {
       let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
 
-      assert_eq!(parser.parse().to_string(), expected);
+      let program = parser.parse();
+
+      dbg!(&program.errors);
+
+      assert!(!program.has_errors());
+
+      assert_eq!(program.to_string(), expected);
     }
   }
 
@@ -585,7 +634,12 @@ mod tests {
 
     for (input, expected) in test_cases {
       let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
-      assert_eq!(parser.parse().to_string(), expected);
+
+      let program = parser.parse();
+
+      assert!(!program.has_errors());
+
+      assert_eq!(program.to_string(), expected);
     }
   }
 
@@ -603,7 +657,11 @@ mod tests {
     for (input, expected) in test_cases {
       let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
 
-      assert_eq!(parser.parse().to_string(), expected);
+      let program = parser.parse();
+
+      assert!(!program.has_errors());
+
+      assert_eq!(program.to_string(), expected);
     }
   }
 
@@ -622,7 +680,33 @@ mod tests {
     for (input, expected) in test_cases {
       let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
 
-      assert_eq!(parser.parse().to_string(), expected);
+      let program = parser.parse();
+
+      assert!(!program.has_errors());
+
+      assert_eq!(program.to_string(), expected);
+    }
+  }
+
+  #[test]
+  fn parse_call_expressions() {
+    let test_cases = vec![
+      ("add(1, 2 * 3, 4 + 5)", "(add(1, (2 * 3), (4 + 5)))"),
+      ("a + add(b * c) + d", "((a + (add((b * c)))) + d)"),
+      (
+        "add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8))",
+        "(add(a, b, 1, (2 * 3), (4 + 5), (add(6, (7 * 8)))))",
+      ),
+    ];
+
+    for (input, expected) in test_cases {
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+
+      let program = parser.parse();
+
+      assert!(!program.has_errors());
+
+      assert_eq!(program.to_string(), expected);
     }
   }
 }
