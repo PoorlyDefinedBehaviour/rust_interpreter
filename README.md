@@ -9,6 +9,37 @@ Based on: </br>
 ```rust
 bruno@bruno:~/dev/rust/interpreter_1$ cargo run
    Compiling interpreter v0.1.0 (/home/bruno/dev/rust/interpreter_1)
+    Finished dev [unoptimized + debuginfo] target(s) in 0.23s
+     Running `target/debug/interpreter`
+> x |> f |> g
+[src/main.rs:26] program.statements = [
+    Expression(
+        Infix(
+            InfixExpression {
+                left_operand: Infix(
+                    InfixExpression {
+                        left_operand: Identifier(
+                            "x",
+                        ),
+                        operator: Pipe,
+                        right_operand: Identifier(
+                            "f",
+                        ),
+                    },
+                ),
+                operator: Pipe,
+                right_operand: Identifier(
+                    "g",
+                ),
+            },
+        ),
+    ),
+]
+```
+
+```rust
+bruno@bruno:~/dev/rust/interpreter_1$ cargo run
+   Compiling interpreter v0.1.0 (/home/bruno/dev/rust/interpreter_1)
     Finished dev [unoptimized + debuginfo] target(s) in 0.28s
      Running `target/debug/interpreter`
 > let factorial = fn(x) { if(x <= 1) { 1 } else { factorial(x - 1) * x } }
