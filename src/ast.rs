@@ -37,6 +37,12 @@ pub struct IfExpression {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct FunctionExpression {
+  pub paremeters: Vec<Expression>,
+  pub body: Box<Statement>,
+}
+
+#[derive(Debug, PartialEq)]
 pub enum Expression {
   Identifier(String),
   Number(f64),
@@ -44,6 +50,7 @@ pub enum Expression {
   Infix(InfixExpression),
   Boolean(bool),
   If(IfExpression),
+  Function(FunctionExpression),
 }
 
 impl fmt::Display for Expression {
@@ -72,6 +79,23 @@ impl fmt::Display for Expression {
         } else {
           write!(f, ")")
         }
+      }
+      Expression::Function(function) => {
+        write!(f, "(fn(")?;
+
+        for (index, parameter) in function.paremeters.iter().enumerate() {
+          if index > 0 {
+            write!(f, ", {}", parameter)?;
+          } else {
+            write!(f, "{}", parameter)?;
+          }
+        }
+
+        write!(f, ") ")?;
+
+        function.body.fmt(f)?;
+
+        write!(f, ")")
       }
     }
   }
