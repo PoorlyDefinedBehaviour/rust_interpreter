@@ -7,6 +7,12 @@ pub struct Program {
   pub statements: Vec<Statement>,
 }
 
+impl Program {
+  pub fn has_errors(&self) -> bool {
+    !self.errors.is_empty()
+  }
+}
+
 impl fmt::Display for Program {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     for statement in &self.statements {
@@ -43,6 +49,12 @@ pub struct FunctionExpression {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct CallExpression {
+  pub function: Box<Expression>,
+  pub arguments: Vec<Expression>,
+}
+
+#[derive(Debug, PartialEq)]
 pub enum Expression {
   Identifier(String),
   Number(f64),
@@ -51,6 +63,7 @@ pub enum Expression {
   Boolean(bool),
   If(IfExpression),
   Function(FunctionExpression),
+  Call(CallExpression),
 }
 
 impl fmt::Display for Expression {
@@ -96,6 +109,24 @@ impl fmt::Display for Expression {
         function.body.fmt(f)?;
 
         write!(f, ")")
+      }
+      Expression::Call(call) => {
+        write!(f, "(")?;
+        call.function.fmt(f)?;
+
+        write!(f, "(")?;
+
+        for (index, argument) in call.arguments.iter().enumerate() {
+          argument.fmt(f)?;
+
+          if index < call.arguments.len() - 1 {
+            write!(f, ", ")?;
+          }
+        }
+
+        write!(f, "))")?;
+
+        Ok(())
       }
     }
   }
