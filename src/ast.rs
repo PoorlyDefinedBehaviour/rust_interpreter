@@ -84,10 +84,10 @@ impl fmt::Display for Expression {
         write!(f, "(fn(")?;
 
         for (index, parameter) in function.paremeters.iter().enumerate() {
-          if index == 0 {
-            write!(f, "{}", parameter)?;
-          } else {
+          if index > 0 {
             write!(f, ", {}", parameter)?;
+          } else {
+            write!(f, "{}", parameter)?;
           }
         }
 
