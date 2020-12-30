@@ -84,6 +84,11 @@ impl Parser {
       Parser::parse_if_expression,
     );
 
+    parser.prefix(
+      std::mem::discriminant(&Token::Function),
+      Parser::parse_function_literal,
+    );
+
     parser.infix(
       std::mem::discriminant(&Token::Plus),
       Parser::parse_infix_expression,
@@ -169,12 +174,12 @@ impl Parser {
     self.infix_parselets.insert(token, parselet);
   }
 
-  fn current_token(&self) -> Option<&Token> {
-    self.tokens.get(self.current_position)
-  }
-
   fn has_tokens_to_parse(&self) -> bool {
     self.current_position < self.tokens.len() - 1
+  }
+
+  fn current_token(&self) -> Option<&Token> {
+    self.tokens.get(self.current_position)
   }
 
   fn next_token(&mut self) -> Option<&Token> {
@@ -303,6 +308,39 @@ impl Parser {
       consequence: Box::new(consequence),
       alternative,
     })
+  }
+
+  fn parse_function_literal(&mut self, _token: &Token) -> Expression {
+    let parameters = self.parse_function_parameters();
+
+    let body = self.parse_block_statement();
+
+    Expression::Function(FunctionExpression {
+      paremeters: parameters,
+      body: Box::new(body),
+    })
+  }
+
+  fn parse_function_parameters(&mut self) -> Vec<Expression> {
+    self.consume(Token::LeftParen);
+
+    let mut parameters: Vec<Expression> = Vec::new();
+
+    while self.has_tokens_to_parse() {
+      match self.next_token() {
+        Some(Token::Comma) => {}
+        Some(Token::Identifier(identifier)) => {
+          parameters.push(Expression::Identifier(identifier.clone()))
+        }
+        Some(Token::RightParen) => break,
+        token => {
+          let error_message = format!("expected function parameters, got {:?}", token);
+          self.errors.push(error_message);
+        }
+      }
+    }
+
+    parameters
   }
 
   fn parse_block_statement(&mut self) -> Statement {
@@ -556,6 +594,25 @@ mod tests {
         "(if ((x > 5)) { a } else { b })",
       ),
       ("if (true) { 2 + 2 * 3 }", "(if (true) { (2 + (2 * 3)) })"),
+    ];
+
+    for (input, expected) in test_cases {
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+
+      assert_eq!(parser.parse().to_string(), expected);
+    }
+  }
+
+  #[test]
+  fn parse_function_literal() {
+    let test_cases = vec![
+      ("fn(x, y) { x + y }", "(fn(x, y) { (x + y) })"),
+      ("fn() { 2 + 2 * 4 }", "(fn() { (2 + (2 * 4)) })"),
+      ("fn() {}", "(fn() {  })"),
+      (
+        "let double = fn(x) { x * 2 }",
+        "let double = (fn(x) { (x * 2) })",
+      ),
     ];
 
     for (input, expected) in test_cases {
