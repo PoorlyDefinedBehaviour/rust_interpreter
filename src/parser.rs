@@ -327,7 +327,7 @@ impl Parser {
     let mut parameters: Vec<Expression> = Vec::new();
 
     while self.has_tokens_to_parse()
-      && !matches!(self.current_token(), Some(token) if token == &Token::RightParen)
+      && matches!(self.current_token(), Some(token) if token != &Token::RightParen)
     {
       match self.next_token() {
         Some(Token::Comma) => {}
