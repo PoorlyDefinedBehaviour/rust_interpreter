@@ -5,7 +5,7 @@ use crate::token::Token;
 pub enum Object {
   Number(f64),
   Boolean(bool),
-  Unit,
+  Null,
 }
 
 pub struct Interpreter {
@@ -18,7 +18,7 @@ impl Interpreter {
   }
 
   pub fn evaluate(&self) -> Object {
-    let mut result: Object = Object::Unit;
+    let mut result: Object = Object::Null;
 
     for statement in &self.program.statements {
       result = self.eval_statement(statement);
@@ -43,23 +43,25 @@ impl Interpreter {
 
         match &expression.operator {
           Token::Bang => self.to_boolean(operand),
-          Token::Minus => {
-            match &operand {
-              Object::Number(number) => Object::Number(-number)
-              object => panic!("operator - expected a number, got {:?}",object)
-            }
-          }
+          Token::Minus => match &operand {
+            Object::Number(number) => Object::Number(-number),
+            object => panic!("operator - expected a number, got {:?}", object),
+          },
+          token => panic!(
+            "unexpected token found in prefix operator position: {:?}",
+            token
+          ),
         }
       }
       _ => panic!("unexpected expression: {:?}", expression),
     }
   }
 
-  fn to_boolean(&self, object:Object) -> bool {
+  fn to_boolean(&self, object: Object) -> Object {
     match object {
       Object::Boolean(boolean) => Object::Boolean(!boolean),
-      Object::Number(number) => Object::Boolean(number != 0),
-      Object::Unit
+      Object::Number(number) => Object::Boolean(number != 0.0),
+      Object::Null => Object::Boolean(false),
     }
   }
 }
@@ -85,6 +87,7 @@ mod tests {
       ("941912921421", Object::Number(941912921421.0)),
       ("true", Object::Boolean(true)),
       ("false", Object::Boolean(false)),
+      ("null", Object::Null),
     ];
 
     for (input, expected) in test_cases {

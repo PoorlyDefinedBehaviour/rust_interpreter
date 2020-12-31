@@ -64,6 +64,7 @@ pub enum Expression {
   If(IfExpression),
   Function(FunctionExpression),
   Call(CallExpression),
+  Null,
 }
 
 impl fmt::Display for Expression {
@@ -128,6 +129,7 @@ impl fmt::Display for Expression {
 
         Ok(())
       }
+      Expression::Null => write!(f, "(null)"),
     }
   }
 }

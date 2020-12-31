@@ -32,6 +32,7 @@ pub enum Token {
   Pipe,
   If,
   Else,
+  Null,
 }
 
 impl fmt::Display for Token {
@@ -67,6 +68,7 @@ impl fmt::Display for Token {
       Token::Pipe => write!(f, "|>"),
       Token::If => write!(f, "if"),
       Token::Else => write!(f, "else"),
+      Token::Null => write!(f, "null"),
     }
   }
 }
@@ -80,6 +82,7 @@ pub fn lookup_identifier(lexeme: String) -> Token {
     "false" => Token::False,
     "if" => Token::If,
     "else" => Token::Else,
+    "null" => Token::Null,
     _ => Token::Identifier(lexeme),
   }
 }
