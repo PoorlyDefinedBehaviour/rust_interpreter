@@ -6,6 +6,7 @@ pub enum Object {
   Number(f64),
   Boolean(bool),
   Null,
+  Return(Box<Object>),
 }
 
 pub struct Interpreter {
@@ -18,13 +19,17 @@ impl Interpreter {
   }
 
   pub fn evaluate(&self) -> Object {
-    self.eval_statements(&self.program.statements)
+    match self.eval_statements(&self.program.statements) {
+      Object::Return(object) => *object,
+      object => object,
+    }
   }
 
   fn eval_statement(&self, statement: &Statement) -> Object {
     match statement {
       Statement::Expression(expression) => self.eval_expression(expression),
       Statement::Block(statements) => self.eval_statements(statements),
+      Statement::Return(expression) => Object::Return(Box::new(self.eval_expression(expression))),
       _ => panic!("unexpected statement: {:?}", statement),
     }
   }
@@ -34,6 +39,10 @@ impl Interpreter {
 
     for statement in statements {
       result = self.eval_statement(statement);
+
+      if matches!(result, Object::Return(_)) {
+        return result;
+      }
     }
 
     result
@@ -117,6 +126,7 @@ impl Interpreter {
       Object::Boolean(_) => object,
       Object::Number(number) => Object::Boolean(number != 0.0),
       Object::Null => Object::Boolean(false),
+      Object::Return(object) => self.to_boolean(*object),
     }
   }
 
@@ -246,6 +256,34 @@ mod tests {
       ("if (1 > 2) { 10 }", Object::Null),
       ("if (1 > 2) { 10 } else { 20 }", Object::Number(20.0)),
       ("if(1 < 2) {10} else {20}", Object::Number(10.0)),
+    ];
+
+    for (input, expected) in test_cases {
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+
+      let program = parser.parse();
+      let interpreter = Interpreter::new(program);
+
+      assert_eq!(interpreter.evaluate(), expected);
+    }
+  }
+  #[test]
+  fn return_statements() {
+    let test_cases: Vec<(&str, Object)> = vec![
+      ("return 10", Object::Number(10.0)),
+      ("return 10 9", Object::Number(10.0)),
+      ("return 2 * 5", Object::Number(10.0)),
+      ("9 return 2 + 5", Object::Number(7.0)),
+      (
+        "if(10 > 1) {
+          if(10 > 1) {
+            return 42
+          }
+
+          return 32 
+        }",
+        Object::Number(42.0),
+      ),
     ];
 
     for (input, expected) in test_cases {
