@@ -18,20 +18,25 @@ impl Interpreter {
   }
 
   pub fn evaluate(&self) -> Object {
-    let mut result: Object = Object::Null;
-
-    for statement in &self.program.statements {
-      result = self.eval_statement(statement);
-    }
-
-    result
+    self.eval_statements(&self.program.statements)
   }
 
   fn eval_statement(&self, statement: &Statement) -> Object {
     match statement {
       Statement::Expression(expression) => self.eval_expression(expression),
+      Statement::Block(statements) => self.eval_statements(statements),
       _ => panic!("unexpected statement: {:?}", statement),
     }
+  }
+
+  fn eval_statements(&self, statements: &[Statement]) -> Object {
+    let mut result: Object = Object::Null;
+
+    for statement in statements {
+      result = self.eval_statement(statement);
+    }
+
+    result
   }
 
   fn eval_expression(&self, expression: &Expression) -> Object {
@@ -89,6 +94,18 @@ impl Interpreter {
             "unexpected infix expression: {:?} {} {:?}",
             left, token, right
           ),
+        }
+      }
+      Expression::If(expression) => {
+        let boolean = self.to_boolean(self.eval_expression(&expression.condition));
+
+        match boolean {
+          Object::Boolean(true) => self.eval_statement(&expression.consequence),
+          Object::Boolean(false) => match &expression.alternative {
+            Some(alternative) => self.eval_statement(alternative),
+            None => Object::Null,
+          },
+          _ => unreachable!(),
         }
       }
       _ => panic!("unexpected expression: {:?}", expression),
@@ -207,6 +224,28 @@ mod tests {
       ("(1 < 2) == false", Object::Boolean(false)),
       ("(1 > 2) == true", Object::Boolean(false)),
       ("(1 > 2) == false", Object::Boolean(true)),
+    ];
+
+    for (input, expected) in test_cases {
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+
+      let program = parser.parse();
+      let interpreter = Interpreter::new(program);
+
+      assert_eq!(interpreter.evaluate(), expected);
+    }
+  }
+
+  #[test]
+  fn if_expressions() {
+    let test_cases: Vec<(&str, Object)> = vec![
+      ("if(true) { 10 }", Object::Number(10.0)),
+      ("if (false) {10}", Object::Null),
+      ("if(1){-3}", Object::Number(-3.0)),
+      ("if (1 < 2) { 5 }", Object::Number(5.0)),
+      ("if (1 > 2) { 10 }", Object::Null),
+      ("if (1 > 2) { 10 } else { 20 }", Object::Number(20.0)),
+      ("if(1 < 2) {10} else {20}", Object::Number(10.0)),
     ];
 
     for (input, expected) in test_cases {
