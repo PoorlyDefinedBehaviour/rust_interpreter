@@ -53,6 +53,44 @@ impl Interpreter {
           ),
         }
       }
+      Expression::Infix(expression) => {
+        let left_operand = self.eval_expression(&expression.left_operand);
+
+        let right_operand = self.eval_expression(&expression.right_operand);
+
+        match (left_operand, &expression.operator, right_operand) {
+          (Object::Number(left), Token::Plus, Object::Number(right)) => {
+            Object::Number(left + right)
+          }
+          (Object::Number(left), Token::Minus, Object::Number(right)) => {
+            Object::Number(left - right)
+          }
+          (Object::Number(left), Token::Star, Object::Number(right)) => {
+            Object::Number(left * right)
+          }
+          (Object::Number(left), Token::Slash, Object::Number(right)) => {
+            Object::Number(left / right)
+          }
+          (Object::Number(left), Token::LessThan, Object::Number(right)) => {
+            Object::Boolean(left < right)
+          }
+          (Object::Number(left), Token::LessThanOrEqual, Object::Number(right)) => {
+            Object::Boolean(left <= right)
+          }
+          (Object::Number(left), Token::GreaterThan, Object::Number(right)) => {
+            Object::Boolean(left > right)
+          }
+          (Object::Number(left), Token::GreaterThanOrEqual, Object::Number(right)) => {
+            Object::Boolean(left >= right)
+          }
+          (left, Token::Equal, right) => Object::Boolean(left == right),
+          (left, Token::NotEqual, right) => Object::Boolean(left != right),
+          (left, token, right) => panic!(
+            "unexpected infix expression: {:?} {} {:?}",
+            left, token, right
+          ),
+        }
+      }
       _ => panic!("unexpected expression: {:?}", expression),
     }
   }
@@ -122,6 +160,53 @@ mod tests {
       ("-0", Object::Number(0.0)),
       ("!-0", Object::Boolean(true)),
       ("!-42834283", Object::Boolean(false)),
+    ];
+
+    for (input, expected) in test_cases {
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+
+      let program = parser.parse();
+      let interpreter = Interpreter::new(program);
+
+      assert_eq!(interpreter.evaluate(), expected);
+    }
+  }
+
+  #[test]
+  fn infix_expressions() {
+    let test_cases: Vec<(&str, Object)> = vec![
+      ("5 + 5 + 5 + 5 - 10", Object::Number(10.0)),
+      ("2 * 2 * 2 * 2 * 2", Object::Number(32.0)),
+      ("-50 + 100 - 50", Object::Number(0.0)),
+      ("5 * 2 + 10", Object::Number(20.0)),
+      ("20 + 2 * -10", Object::Number(0.0)),
+      ("5 + 2 * 10", Object::Number(25.0)),
+      ("20 + 2 * - 10", Object::Number(0.0)),
+      ("50 / 2 * 2 + 10", Object::Number(60.0)),
+      ("2 * (5 + 10)", Object::Number(30.0)),
+      ("3 * (3 * 3) + 10", Object::Number(37.0)),
+      ("(5 + 10 * 2 + 15 / 3) * 2 + -10", Object::Number(50.0)),
+      ("1 < 2", Object::Boolean(true)),
+      ("1 > 2", Object::Boolean(false)),
+      ("1 < 1", Object::Boolean(false)),
+      ("1 > 1", Object::Boolean(false)),
+      ("1 == 1", Object::Boolean(true)),
+      ("1 != 1", Object::Boolean(false)),
+      ("1 == 2", Object::Boolean(false)),
+      ("1 != 2", Object::Boolean(true)),
+      ("-1 == (-1)", Object::Boolean(true)),
+      ("1 == -1", Object::Boolean(false)),
+      ("-(2 + 2) == 4", Object::Boolean(false)),
+      ("-(2 + 2) == -4", Object::Boolean(true)),
+      ("true == true", Object::Boolean(true)),
+      ("true != true", Object::Boolean(false)),
+      ("true == false", Object::Boolean(false)),
+      ("false == true", Object::Boolean(false)),
+      ("false != true", Object::Boolean(true)),
+      ("(1 < 2) == true", Object::Boolean(true)),
+      ("(1 < 2) == false", Object::Boolean(false)),
+      ("(1 > 2) == true", Object::Boolean(false)),
+      ("(1 > 2) == false", Object::Boolean(true)),
     ];
 
     for (input, expected) in test_cases {
