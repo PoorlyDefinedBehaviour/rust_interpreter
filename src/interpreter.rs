@@ -4,7 +4,7 @@ use crate::ast::{Expression, Program, Statement};
 pub enum Object {
   Number(f64),
   Boolean(bool),
-  Unit,
+  Null,
 }
 
 pub struct Interpreter {
@@ -17,7 +17,7 @@ impl Interpreter {
   }
 
   pub fn evaluate(&self) -> Object {
-    let mut result: Object = Object::Unit;
+    let mut result: Object = Object::Null;
 
     for statement in &self.program.statements {
       result = self.eval(statement);
@@ -30,6 +30,7 @@ impl Interpreter {
     match statement {
       Statement::Expression(Expression::Number(number)) => Object::Number(*number),
       Statement::Expression(Expression::Boolean(t)) => Object::Boolean(*t),
+      Statement::Expression(Expression::Null) => Object::Null,
       _ => panic!("unexpected statement: {:?}", statement),
     }
   }
@@ -56,6 +57,7 @@ mod tests {
       ("941912921421", Object::Number(941912921421.0)),
       ("true", Object::Boolean(true)),
       ("false", Object::Boolean(false)),
+      ("null", Object::Null),
     ];
 
     for (input, expected) in test_cases {
