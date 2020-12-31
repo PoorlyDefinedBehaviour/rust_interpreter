@@ -29,6 +29,7 @@ impl Interpreter {
   fn eval(&self, statement: &Statement) -> Object {
     match statement {
       Statement::Expression(Expression::Number(number)) => Object::Number(*number),
+      Statement::Expression(Expression::Boolean(t)) => Object::Boolean(*t),
       _ => panic!("unexpected statement: {:?}", statement),
     }
   }
@@ -42,7 +43,7 @@ mod tests {
   use crate::parser::Parser;
 
   #[test]
-  fn interpret_numbers() {
+  fn simple_literals() {
     let test_cases: Vec<(&str, Object)> = vec![
       ("2", Object::Number(2.0)),
       ("43283", Object::Number(43283.0)),
@@ -53,6 +54,8 @@ mod tests {
         Object::Number(412041204812942198312938912839123.0),
       ),
       ("941912921421", Object::Number(941912921421.0)),
+      ("true", Object::Boolean(true)),
+      ("false", Object::Boolean(false)),
     ];
 
     for (input, expected) in test_cases {
