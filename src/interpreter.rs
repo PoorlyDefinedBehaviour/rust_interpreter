@@ -42,7 +42,7 @@ impl Interpreter {
         let operand = self.eval_expression(&expression.operand);
 
         match &expression.operator {
-          Token::Bang => self.to_boolean(operand),
+          Token::Bang => self.not(self.to_boolean(operand)),
           Token::Minus => match &operand {
             Object::Number(number) => Object::Number(-number),
             object => panic!("operator - expected a number, got {:?}", object),
@@ -59,9 +59,16 @@ impl Interpreter {
 
   fn to_boolean(&self, object: Object) -> Object {
     match object {
-      Object::Boolean(boolean) => Object::Boolean(!boolean),
+      Object::Boolean(_) => object,
       Object::Number(number) => Object::Boolean(number != 0.0),
       Object::Null => Object::Boolean(false),
+    }
+  }
+
+  fn not(&self, object: Object) -> Object {
+    match object {
+      Object::Boolean(boolean) => Object::Boolean(!boolean),
+      _ => unreachable!(),
     }
   }
 }
@@ -107,8 +114,14 @@ mod tests {
       ("!false", Object::Boolean(true)),
       ("!5", Object::Boolean(false)),
       ("!!true", Object::Boolean(true)),
-      ("!!true", Object::Boolean(false)),
+      ("!!false", Object::Boolean(false)),
       ("!!3", Object::Boolean(true)),
+      ("-5", Object::Number(-5.0)),
+      ("-10", Object::Number(-10.0)),
+      ("-0", Object::Number(-0.0)),
+      ("-0", Object::Number(0.0)),
+      ("!-0", Object::Boolean(true)),
+      ("!-42834283", Object::Boolean(false)),
     ];
 
     for (input, expected) in test_cases {
