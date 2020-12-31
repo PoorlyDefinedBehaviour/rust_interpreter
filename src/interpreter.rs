@@ -29,7 +29,7 @@ impl Interpreter {
     }
   }
 
-  fn eval_statements(&self, statements: &Vec<Statement>) -> Object {
+  fn eval_statements(&self, statements: &[Statement]) -> Object {
     let mut result: Object = Object::Null;
 
     for statement in statements {
