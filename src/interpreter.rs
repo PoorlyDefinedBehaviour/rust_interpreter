@@ -1,5 +1,6 @@
 use crate::ast::{Expression, Program, Statement};
 use crate::token::Token;
+use std::fmt;
 
 #[derive(Debug, PartialEq)]
 pub enum Object {
@@ -7,6 +8,22 @@ pub enum Object {
   Boolean(bool),
   Null,
   Return(Box<Object>),
+  Error(String),
+}
+
+impl fmt::Display for Object {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    match self {
+      Object::Number(number) => write!(f, "{}", number),
+      Object::Boolean(boolean) => write!(f, "{}", boolean),
+      Object::Null => write!(f, "null"),
+      Object::Return(object) => {
+        write!(f, "return ")?;
+        object.fmt(f)
+      }
+      _ => unreachable!(),
+    }
+  }
 }
 
 pub struct Interpreter {
@@ -30,7 +47,7 @@ impl Interpreter {
       Statement::Expression(expression) => self.eval_expression(expression),
       Statement::Block(statements) => self.eval_statements(statements),
       Statement::Return(expression) => Object::Return(Box::new(self.eval_expression(expression))),
-      _ => panic!("unexpected statement: {:?}", statement),
+      _ => Object::Error(format!("unexpected statement: {:?}", statement)),
     }
   }
 
@@ -40,7 +57,7 @@ impl Interpreter {
     for statement in statements {
       result = self.eval_statement(statement);
 
-      if matches!(result, Object::Return(_)) {
+      if matches!(result, Object::Return(_) | Object::Error(_)) {
         return result;
       }
     }
@@ -55,16 +72,13 @@ impl Interpreter {
       Expression::Prefix(expression) => {
         let operand = self.eval_expression(&expression.operand);
 
-        match &expression.operator {
-          Token::Bang => self.not(self.to_boolean(operand)),
-          Token::Minus => match &operand {
-            Object::Number(number) => Object::Number(-number),
-            object => panic!("operator - expected a number, got {:?}", object),
-          },
-          token => panic!(
-            "unexpected token found in prefix operator position: {:?}",
-            token
-          ),
+        match (&expression.operator, operand) {
+          (Token::Bang, operand) => self.not(self.to_boolean(operand)),
+          (Token::Minus, Object::Number(number)) => Object::Number(-number),
+          (token, operand) => Object::Error(format!(
+            "unexpected prefix expression: {}{}",
+            token, operand
+          )),
         }
       }
       Expression::Infix(expression) => {
@@ -99,10 +113,10 @@ impl Interpreter {
           }
           (left, Token::Equal, right) => Object::Boolean(left == right),
           (left, Token::NotEqual, right) => Object::Boolean(left != right),
-          (left, token, right) => panic!(
-            "unexpected infix expression: {:?} {} {:?}",
+          (left, token, right) => Object::Error(format!(
+            "unexpected infix expression: {} {} {}",
             left, token, right
-          ),
+          )),
         }
       }
       Expression::If(expression) => {
@@ -117,7 +131,7 @@ impl Interpreter {
           _ => unreachable!(),
         }
       }
-      _ => panic!("unexpected expression: {:?}", expression),
+      _ => unreachable!(),
     }
   }
 
@@ -126,7 +140,7 @@ impl Interpreter {
       Object::Boolean(_) => object,
       Object::Number(number) => Object::Boolean(number != 0.0),
       Object::Null => Object::Boolean(false),
-      Object::Return(object) => self.to_boolean(*object),
+      Object::Return(_) | Object::Error(_) => unreachable!(),
     }
   }
 
@@ -200,6 +214,26 @@ mod tests {
   }
 
   #[test]
+  fn prefix_expression_errors() {
+    let test_cases: Vec<(&str, &str)> = vec![
+      ("-true", "unexpected prefix expression: -true"),
+      ("-false", "unexpected prefix expression: -false"),
+    ];
+
+    for (input, expected) in test_cases {
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+
+      let program = parser.parse();
+      let interpreter = Interpreter::new(program);
+
+      assert_eq!(
+        interpreter.evaluate(),
+        Object::Error(String::from(expected))
+      );
+    }
+  }
+
+  #[test]
   fn infix_expressions() {
     let test_cases: Vec<(&str, Object)> = vec![
       ("5 + 5 + 5 + 5 - 10", Object::Number(10.0)),
@@ -243,6 +277,79 @@ mod tests {
       let interpreter = Interpreter::new(program);
 
       assert_eq!(interpreter.evaluate(), expected);
+    }
+  }
+
+  #[test]
+  fn infix_expression_errors() {
+    let test_cases: Vec<(&str, &str)> = vec![
+      ("true > false", "unexpected infix expression: true > false"),
+      ("true < false", "unexpected infix expression: true < false"),
+      ("false > true", "unexpected infix expression: false > true"),
+      ("false < true", "unexpected infix expression: false < true"),
+      (
+        "false > false",
+        "unexpected infix expression: false > false",
+      ),
+      (
+        "false < false",
+        "unexpected infix expression: false < false",
+      ),
+      ("true > true", "unexpected infix expression: true > true"),
+      ("true < true", "unexpected infix expression: true < true"),
+      (
+        "false + false",
+        "unexpected infix expression: false + false",
+      ),
+      ("false + true", "unexpected infix expression: false + true"),
+      ("true + false", "unexpected infix expression: true + false"),
+      ("true + true", "unexpected infix expression: true + true"),
+      (
+        "false - false",
+        "unexpected infix expression: false - false",
+      ),
+      ("false - true", "unexpected infix expression: false - true"),
+      ("true - true", "unexpected infix expression: true - true"),
+      ("true - false", "unexpected infix expression: true - false"),
+      (
+        "false * false",
+        "unexpected infix expression: false * false",
+      ),
+      ("false * true", "unexpected infix expression: false * true"),
+      ("true * true", "unexpected infix expression: true * true"),
+      ("true * false", "unexpected infix expression: true * false"),
+      (
+        "false / false",
+        "unexpected infix expression: false / false",
+      ),
+      ("false / true", "unexpected infix expression: false / true"),
+      ("true / true", "unexpected infix expression: true / true"),
+      ("true / false", "unexpected infix expression: true / false"),
+      (
+        "false |> false",
+        "unexpected infix expression: false |> false",
+      ),
+      (
+        "false |> true",
+        "unexpected infix expression: false |> true",
+      ),
+      ("true |> true", "unexpected infix expression: true |> true"),
+      (
+        "true |> false",
+        "unexpected infix expression: true |> false",
+      ),
+    ];
+
+    for (input, expected) in test_cases {
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+
+      let program = parser.parse();
+      let interpreter = Interpreter::new(program);
+
+      assert_eq!(
+        interpreter.evaluate(),
+        Object::Error(String::from(expected))
+      );
     }
   }
 
