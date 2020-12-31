@@ -8,8 +8,9 @@ pub enum Object {
   Boolean(bool),
   Null,
   Return(Box<Object>),
-  Error(String),
 }
+
+type InterpreterError = String;
 
 impl fmt::Display for Object {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -21,7 +22,6 @@ impl fmt::Display for Object {
         write!(f, "return ")?;
         object.fmt(f)
       }
-      _ => unreachable!(),
     }
   }
 }
@@ -35,98 +35,101 @@ impl Interpreter {
     Interpreter { program }
   }
 
-  pub fn evaluate(&self) -> Object {
+  pub fn evaluate(&self) -> Result<Object, InterpreterError> {
     match self.eval_statements(&self.program.statements) {
-      Object::Return(object) => *object,
-      object => object,
+      Ok(Object::Return(object)) => Ok(*object),
+      result => result,
     }
   }
 
-  fn eval_statement(&self, statement: &Statement) -> Object {
+  fn eval_statement(&self, statement: &Statement) -> Result<Object, InterpreterError> {
     match statement {
-      Statement::Expression(expression) => self.eval_expression(expression),
+      Statement::Expression(expression) => Ok(self.eval_expression(expression)?),
       Statement::Block(statements) => self.eval_statements(statements),
-      Statement::Return(expression) => Object::Return(Box::new(self.eval_expression(expression))),
-      _ => Object::Error(format!("unexpected statement: {:?}", statement)),
+      Statement::Return(expression) => {
+        let object = self.eval_expression(expression)?;
+        Ok(Object::Return(Box::new(object)))
+      }
+      _ => Err(format!("unexpected statement: {:?}", statement)),
     }
   }
 
-  fn eval_statements(&self, statements: &[Statement]) -> Object {
+  fn eval_statements(&self, statements: &[Statement]) -> Result<Object, InterpreterError> {
     let mut result: Object = Object::Null;
 
     for statement in statements {
-      result = self.eval_statement(statement);
+      result = self.eval_statement(statement)?;
 
-      if matches!(result, Object::Return(_) | Object::Error(_)) {
-        return result;
+      if matches!(result, Object::Return(_)) {
+        return Ok(result);
       }
     }
 
-    result
+    Ok(result)
   }
 
-  fn eval_expression(&self, expression: &Expression) -> Object {
+  fn eval_expression(&self, expression: &Expression) -> Result<Object, InterpreterError> {
     match expression {
-      Expression::Number(number) => Object::Number(*number),
-      Expression::Boolean(t) => Object::Boolean(*t),
+      Expression::Number(number) => Ok(Object::Number(*number)),
+      Expression::Boolean(t) => Ok(Object::Boolean(*t)),
       Expression::Prefix(expression) => {
-        let operand = self.eval_expression(&expression.operand);
+        let operand = self.eval_expression(&expression.operand)?;
 
         match (&expression.operator, operand) {
-          (Token::Bang, operand) => self.not(self.to_boolean(operand)),
-          (Token::Minus, Object::Number(number)) => Object::Number(-number),
-          (token, operand) => Object::Error(format!(
+          (Token::Bang, operand) => Ok(self.not(self.to_boolean(operand))),
+          (Token::Minus, Object::Number(number)) => Ok(Object::Number(-number)),
+          (token, operand) => Err(format!(
             "unexpected prefix expression: {}{}",
             token, operand
           )),
         }
       }
       Expression::Infix(expression) => {
-        let left_operand = self.eval_expression(&expression.left_operand);
+        let left_operand = self.eval_expression(&expression.left_operand)?;
 
-        let right_operand = self.eval_expression(&expression.right_operand);
+        let right_operand = self.eval_expression(&expression.right_operand)?;
 
         match (left_operand, &expression.operator, right_operand) {
           (Object::Number(left), Token::Plus, Object::Number(right)) => {
-            Object::Number(left + right)
+            Ok(Object::Number(left + right))
           }
           (Object::Number(left), Token::Minus, Object::Number(right)) => {
-            Object::Number(left - right)
+            Ok(Object::Number(left - right))
           }
           (Object::Number(left), Token::Star, Object::Number(right)) => {
-            Object::Number(left * right)
+            Ok(Object::Number(left * right))
           }
           (Object::Number(left), Token::Slash, Object::Number(right)) => {
-            Object::Number(left / right)
+            Ok(Object::Number(left / right))
           }
           (Object::Number(left), Token::LessThan, Object::Number(right)) => {
-            Object::Boolean(left < right)
+            Ok(Object::Boolean(left < right))
           }
           (Object::Number(left), Token::LessThanOrEqual, Object::Number(right)) => {
-            Object::Boolean(left <= right)
+            Ok(Object::Boolean(left <= right))
           }
           (Object::Number(left), Token::GreaterThan, Object::Number(right)) => {
-            Object::Boolean(left > right)
+            Ok(Object::Boolean(left > right))
           }
           (Object::Number(left), Token::GreaterThanOrEqual, Object::Number(right)) => {
-            Object::Boolean(left >= right)
+            Ok(Object::Boolean(left >= right))
           }
-          (left, Token::Equal, right) => Object::Boolean(left == right),
-          (left, Token::NotEqual, right) => Object::Boolean(left != right),
-          (left, token, right) => Object::Error(format!(
+          (left, Token::Equal, right) => Ok(Object::Boolean(left == right)),
+          (left, Token::NotEqual, right) => Ok(Object::Boolean(left != right)),
+          (left, token, right) => Err(format!(
             "unexpected infix expression: {} {} {}",
             left, token, right
           )),
         }
       }
       Expression::If(expression) => {
-        let boolean = self.to_boolean(self.eval_expression(&expression.condition));
+        let boolean = self.to_boolean(self.eval_expression(&expression.condition)?);
 
         match boolean {
           Object::Boolean(true) => self.eval_statement(&expression.consequence),
           Object::Boolean(false) => match &expression.alternative {
             Some(alternative) => self.eval_statement(alternative),
-            None => Object::Null,
+            None => Ok(Object::Null),
           },
           _ => unreachable!(),
         }
@@ -140,7 +143,7 @@ impl Interpreter {
       Object::Boolean(_) => object,
       Object::Number(number) => Object::Boolean(number != 0.0),
       Object::Null => Object::Boolean(false),
-      Object::Return(_) | Object::Error(_) => unreachable!(),
+      Object::Return(_) => unreachable!(),
     }
   }
 
@@ -182,7 +185,7 @@ mod tests {
       let program = parser.parse();
       let interpreter = Interpreter::new(program);
 
-      assert_eq!(interpreter.evaluate(), expected);
+      assert_eq!(interpreter.evaluate().unwrap(), expected);
     }
   }
 
@@ -209,7 +212,7 @@ mod tests {
       let program = parser.parse();
       let interpreter = Interpreter::new(program);
 
-      assert_eq!(interpreter.evaluate(), expected);
+      assert_eq!(interpreter.evaluate().unwrap(), expected);
     }
   }
 
@@ -226,10 +229,7 @@ mod tests {
       let program = parser.parse();
       let interpreter = Interpreter::new(program);
 
-      assert_eq!(
-        interpreter.evaluate(),
-        Object::Error(String::from(expected))
-      );
+      assert_eq!(interpreter.evaluate(), Err(String::from(expected)));
     }
   }
 
@@ -276,7 +276,7 @@ mod tests {
       let program = parser.parse();
       let interpreter = Interpreter::new(program);
 
-      assert_eq!(interpreter.evaluate(), expected);
+      assert_eq!(interpreter.evaluate().unwrap(), expected);
     }
   }
 
@@ -346,10 +346,7 @@ mod tests {
       let program = parser.parse();
       let interpreter = Interpreter::new(program);
 
-      assert_eq!(
-        interpreter.evaluate(),
-        Object::Error(String::from(expected))
-      );
+      assert_eq!(interpreter.evaluate(), Err(String::from(expected)));
     }
   }
 
@@ -371,7 +368,7 @@ mod tests {
       let program = parser.parse();
       let interpreter = Interpreter::new(program);
 
-      assert_eq!(interpreter.evaluate(), expected);
+      assert_eq!(interpreter.evaluate().unwrap(), expected);
     }
   }
   #[test]
@@ -399,7 +396,7 @@ mod tests {
       let program = parser.parse();
       let interpreter = Interpreter::new(program);
 
-      assert_eq!(interpreter.evaluate(), expected);
+      assert_eq!(interpreter.evaluate().unwrap(), expected);
     }
   }
 }
