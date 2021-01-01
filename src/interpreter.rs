@@ -1,13 +1,15 @@
 use crate::ast::{Expression, Program, Statement};
 use crate::token::Token;
+use std::collections::HashMap;
 use std::fmt;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Object {
   Number(f64),
   Boolean(bool),
   Null,
   Return(Box<Object>),
+  Identifier(String),
 }
 
 type InterpreterError = String;
@@ -22,27 +24,73 @@ impl fmt::Display for Object {
         write!(f, "return ")?;
         object.fmt(f)
       }
+      Object::Identifier(identifier) => write!(f, "{}", identifier),
     }
   }
 }
 
+#[derive(Debug)]
+pub struct Environment {
+  scopes: Vec<HashMap<String, Object>>,
+}
+
+impl Environment {
+  pub fn new() -> Self {
+    Environment {
+      scopes: vec![HashMap::new()],
+    }
+  }
+
+  pub fn create_scope(&mut self) {
+    self.scopes.push(HashMap::new());
+  }
+
+  pub fn destroy_current_scope(&mut self) {
+    self.scopes.pop();
+  }
+
+  pub fn set_binding(&mut self, identifier: String, value: Object) -> Result<(), String> {
+    match self.scopes.last_mut() {
+      Some(scope) => {
+        if scope.contains_key(&identifier) {
+          return Err(format!(
+            "identifier {} is already declared in this scope",
+            identifier
+          ));
+        }
+
+        scope.insert(identifier, value);
+
+        Ok(())
+      }
+      None => Err(String::from("environment has no scopes")),
+    }
+  }
+
+  pub fn get_binding(&self, identifier: &String) -> Option<&Object> {
+    self.scopes.last().and_then(|scope| scope.get(identifier))
+  }
+}
+
 pub struct Interpreter {
-  program: Program,
+  enviroment: Environment,
 }
 
 impl Interpreter {
-  pub fn new(program: Program) -> Self {
-    Interpreter { program }
+  pub fn new() -> Self {
+    Interpreter {
+      enviroment: Environment::new(),
+    }
   }
 
-  pub fn evaluate(&self) -> Result<Object, InterpreterError> {
-    match self.eval_statements(&self.program.statements) {
+  pub fn evaluate(&mut self, program: &Program) -> Result<Object, InterpreterError> {
+    match self.eval_statements(&program.statements) {
       Ok(Object::Return(object)) => Ok(*object),
       result => result,
     }
   }
 
-  fn eval_statement(&self, statement: &Statement) -> Result<Object, InterpreterError> {
+  fn eval_statement(&mut self, statement: &Statement) -> Result<Object, InterpreterError> {
     match statement {
       Statement::Expression(expression) => Ok(self.eval_expression(expression)?),
       Statement::Block(statements) => self.eval_statements(statements),
@@ -50,11 +98,18 @@ impl Interpreter {
         let object = self.eval_expression(expression)?;
         Ok(Object::Return(Box::new(object)))
       }
-      _ => Err(format!("unexpected statement: {:?}", statement)),
+      Statement::Let(statement) => {
+        let identifier = statement.identifier.to_string();
+        let value = self.eval_expression(&statement.value)?;
+
+        self.enviroment.set_binding(identifier, value.clone())?;
+
+        Ok(value)
+      }
     }
   }
 
-  fn eval_statements(&self, statements: &[Statement]) -> Result<Object, InterpreterError> {
+  fn eval_statements(&mut self, statements: &[Statement]) -> Result<Object, InterpreterError> {
     let mut result: Object = Object::Null;
 
     for statement in statements {
@@ -68,7 +123,7 @@ impl Interpreter {
     Ok(result)
   }
 
-  fn eval_expression(&self, expression: &Expression) -> Result<Object, InterpreterError> {
+  fn eval_expression(&mut self, expression: &Expression) -> Result<Object, InterpreterError> {
     match expression {
       Expression::Number(number) => Ok(Object::Number(*number)),
       Expression::Boolean(t) => Ok(Object::Boolean(*t)),
@@ -123,7 +178,8 @@ impl Interpreter {
         }
       }
       Expression::If(expression) => {
-        let boolean = self.to_boolean(self.eval_expression(&expression.condition)?);
+        let object = self.eval_expression(&expression.condition)?;
+        let boolean = self.to_boolean(object);
 
         match boolean {
           Object::Boolean(true) => self.eval_statement(&expression.consequence),
@@ -134,6 +190,10 @@ impl Interpreter {
           _ => unreachable!(),
         }
       }
+      Expression::Identifier(identifier) => match self.enviroment.get_binding(&identifier) {
+        Some(object) => Ok(object.clone()),
+        None => Err(format!("identifier not found: {}", identifier)),
+      },
       _ => unreachable!(),
     }
   }
@@ -143,6 +203,10 @@ impl Interpreter {
       Object::Boolean(_) => object,
       Object::Number(number) => Object::Boolean(number != 0.0),
       Object::Null => Object::Boolean(false),
+      Object::Identifier(identifier) => match self.enviroment.get_binding(&identifier) {
+        Some(object) => self.to_boolean(object.clone()),
+        None => Object::Boolean(false),
+      },
       Object::Return(_) => unreachable!(),
     }
   }
@@ -183,9 +247,9 @@ mod tests {
       let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
 
       let program = parser.parse();
-      let interpreter = Interpreter::new(program);
+      let mut interpreter = Interpreter::new();
 
-      assert_eq!(interpreter.evaluate().unwrap(), expected);
+      assert_eq!(interpreter.evaluate(&program).unwrap(), expected);
     }
   }
 
@@ -210,9 +274,9 @@ mod tests {
       let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
 
       let program = parser.parse();
-      let interpreter = Interpreter::new(program);
+      let mut interpreter = Interpreter::new();
 
-      assert_eq!(interpreter.evaluate().unwrap(), expected);
+      assert_eq!(interpreter.evaluate(&program).unwrap(), expected);
     }
   }
 
@@ -227,9 +291,9 @@ mod tests {
       let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
 
       let program = parser.parse();
-      let interpreter = Interpreter::new(program);
+      let mut interpreter = Interpreter::new();
 
-      assert_eq!(interpreter.evaluate(), Err(String::from(expected)));
+      assert_eq!(interpreter.evaluate(&program), Err(String::from(expected)));
     }
   }
 
@@ -274,9 +338,9 @@ mod tests {
       let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
 
       let program = parser.parse();
-      let interpreter = Interpreter::new(program);
+      let mut interpreter = Interpreter::new();
 
-      assert_eq!(interpreter.evaluate().unwrap(), expected);
+      assert_eq!(interpreter.evaluate(&program).unwrap(), expected);
     }
   }
 
@@ -344,9 +408,9 @@ mod tests {
       let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
 
       let program = parser.parse();
-      let interpreter = Interpreter::new(program);
+      let mut interpreter = Interpreter::new();
 
-      assert_eq!(interpreter.evaluate(), Err(String::from(expected)));
+      assert_eq!(interpreter.evaluate(&program), Err(String::from(expected)));
     }
   }
 
@@ -366,11 +430,12 @@ mod tests {
       let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
 
       let program = parser.parse();
-      let interpreter = Interpreter::new(program);
+      let mut interpreter = Interpreter::new();
 
-      assert_eq!(interpreter.evaluate().unwrap(), expected);
+      assert_eq!(interpreter.evaluate(&program).unwrap(), expected);
     }
   }
+
   #[test]
   fn return_statements() {
     let test_cases: Vec<(&str, Object)> = vec![
@@ -394,9 +459,86 @@ mod tests {
       let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
 
       let program = parser.parse();
-      let interpreter = Interpreter::new(program);
+      let mut interpreter = Interpreter::new();
 
-      assert_eq!(interpreter.evaluate().unwrap(), expected);
+      assert_eq!(interpreter.evaluate(&program).unwrap(), expected);
+    }
+  }
+
+  #[test]
+  fn bindings() {
+    let test_cases: Vec<(&str, Object)> = vec![
+      (
+        "
+        let a = 5
+        a
+       ",
+        Object::Number(5.0),
+      ),
+      (
+        "
+        let a = 5 * 5
+        a
+       ",
+        Object::Number(25.0),
+      ),
+      (
+        "
+        let a = 5
+        let b = a
+        b
+        ",
+        Object::Number(5.0),
+      ),
+      (
+        "
+        let a = 5
+        let b = a
+        let c = a + b + 5
+        c
+      ",
+        Object::Number(15.0),
+      ),
+    ];
+
+    for (input, expected) in test_cases {
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+
+      let program = parser.parse();
+      let mut interpreter = Interpreter::new();
+
+      assert_eq!(interpreter.evaluate(&program).unwrap(), expected);
+    }
+  }
+
+  #[test]
+  fn binding_errors() {
+    let test_cases: Vec<(&str, &str)> = vec![
+      ("foobar", "identifier not found: foobar"),
+      (
+        "
+        let a = 10
+        let a = 20
+        ",
+        "identifier a is already declared in this scope",
+      ),
+      (
+        "
+        let a = 10
+        let b = 20
+        let a = 30
+        ",
+        "identifier a is already declared in this scope",
+      ),
+    ];
+
+    for (input, expected) in test_cases {
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+
+      let program = parser.parse();
+      let mut interpreter = Interpreter::new();
+
+      assert_eq!(interpreter.evaluate(&program), Err(String::from(expected)));
     }
   }
 }
