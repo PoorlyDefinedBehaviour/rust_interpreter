@@ -476,6 +476,10 @@ mod tests {
       ("false |> true", "expression is not a function: true"),
       ("true |> true", "expression is not a function: true"),
       ("true |> false", "expression is not a function: false"),
+      ("true |> 10", "expression is not a function: 10"),
+      ("true |> 32", "expression is not a function: 32"),
+      ("true |> -1", "expression is not a function: (- 1)"),
+      ("10 |> 0", "expression is not a function: 0"),
     ];
 
     for (input, expected) in test_cases {
