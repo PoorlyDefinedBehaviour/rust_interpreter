@@ -79,6 +79,10 @@ impl Interpreter {
     Interpreter { environment }
   }
 
+  pub fn default() -> Self {
+    Interpreter::new()
+  }
+
   pub fn evaluate(&mut self, program: &Program) -> Result<Object, InterpreterError> {
     match self.eval_statements(&program.statements) {
       Ok(Object::Return(object)) => Ok(*object),
