@@ -100,6 +100,25 @@ impl Lexer {
       .collect()
   }
 
+  fn read_string(&mut self) -> String {
+    let string_starts_at = self.position;
+
+    self.read_character(); // advance past "
+
+    while self.character != '"' {
+      self.read_character();
+    }
+
+    self.read_character(); // advance past "
+
+    self
+      .source_code
+      .chars()
+      .skip(string_starts_at + 1)
+      .take(self.position - string_starts_at - 2)
+      .collect()
+  }
+
   fn next_character_is(&self, expected_character: char) -> bool {
     if self.next_position >= self.source_code.len() {
       return false;
@@ -165,6 +184,7 @@ impl Lexer {
         }
       }
       '\0' => Token::Eof,
+      '"' => return Token::String(self.read_string()),
       character if character.is_alphabetic() => {
         let identifier = self.read_identifier();
         return lookup_identifier(identifier);
@@ -397,6 +417,37 @@ mod tests {
         vec![
           Token::Minus,
           Token::Number(String::from("59.42")),
+          Token::Eof,
+        ],
+      ),
+    ];
+
+    for (input, expected_tokens) in test_cases {
+      let mut lexer = Lexer::new(String::from(input));
+
+      assert_eq!(expected_tokens, lexer.lex());
+    }
+  }
+
+  #[test]
+  fn strings() {
+    let test_cases: Vec<(&str, Vec<Token>)> = vec![
+      (
+        r#""10""#,
+        vec![Token::String(String::from("10")), Token::Eof],
+      ),
+      (
+        r#""hello world""#,
+        vec![Token::String(String::from("hello world")), Token::Eof],
+      ),
+      (
+        r#""-421894124128""#,
+        vec![Token::String(String::from("-421894124128")), Token::Eof],
+      ),
+      (
+        r#""let f = fn(x) { f() }""#,
+        vec![
+          Token::String(String::from("let f = fn(x) { f() }")),
           Token::Eof,
         ],
       ),
