@@ -52,7 +52,7 @@ bruno@bruno:~/dev/rust/interpreter_1$ cargo run
             ),
             value: Function(
                 FunctionExpression {
-                    paremeters: [
+                    parameters: [
                         Identifier(
                             "x",
                         ),

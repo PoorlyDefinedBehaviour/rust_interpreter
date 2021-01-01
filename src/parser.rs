@@ -304,14 +304,14 @@ impl Parser {
       Some(Token::Else) => {
         self.next_token();
 
-        Some(Box::new(self.parse_block_statement()))
+        Some(self.parse_block_statement())
       }
       _ => None,
     };
 
     Expression::If(IfExpression {
       condition: Box::new(condition),
-      consequence: Box::new(consequence),
+      consequence,
       alternative,
     })
   }
@@ -321,25 +321,20 @@ impl Parser {
 
     let body = self.parse_block_statement();
 
-    Expression::Function(FunctionExpression {
-      paremeters: parameters,
-      body: Box::new(body),
-    })
+    Expression::Function(FunctionExpression { parameters, body })
   }
 
-  fn parse_function_parameters(&mut self) -> Vec<Expression> {
+  fn parse_function_parameters(&mut self) -> Vec<String> {
     self.consume(Token::LeftParen);
 
-    let mut parameters: Vec<Expression> = Vec::new();
+    let mut parameters: Vec<String> = Vec::new();
 
     while self.has_tokens_to_parse()
       && matches!(self.current_token(), Some(token) if token != &Token::RightParen)
     {
       match self.next_token() {
         Some(Token::Comma) => {}
-        Some(Token::Identifier(identifier)) => {
-          parameters.push(Expression::Identifier(identifier.clone()))
-        }
+        Some(Token::Identifier(identifier)) => parameters.push(identifier.clone()),
         Some(Token::RightParen) => break,
         token => {
           let error_message = format!("expected function parameters, got {:?}", token);
@@ -385,7 +380,7 @@ impl Parser {
     arguments
   }
 
-  fn parse_block_statement(&mut self) -> Statement {
+  fn parse_block_statement(&mut self) -> Vec<Statement> {
     self.consume(Token::LeftBrace);
 
     let mut statements: Vec<Statement> = vec![];
@@ -402,7 +397,7 @@ impl Parser {
 
     self.consume(Token::RightBrace);
 
-    Statement::Block(statements)
+    statements
   }
 
   fn parse_identifier(&mut self, token: &Token) -> Expression {
