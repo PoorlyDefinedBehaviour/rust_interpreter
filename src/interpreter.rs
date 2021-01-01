@@ -294,7 +294,7 @@ impl Interpreter {
       },
       Object::Function(_) => Object::Boolean(true),
       Object::Return(_) => unreachable!(),
-      Object::String(string) => Object::Boolean(string != ""),
+      Object::String(string) => Object::Boolean(!string.is_empty()),
     }
   }
 
