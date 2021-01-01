@@ -67,7 +67,7 @@ impl Environment {
     }
   }
 
-  pub fn get_binding(&self, identifier: &String) -> Option<&Object> {
+  pub fn get_binding(&self, identifier: &str) -> Option<&Object> {
     self.scopes.last().and_then(|scope| scope.get(identifier))
   }
 }
