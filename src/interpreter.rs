@@ -70,6 +70,12 @@ pub struct Interpreter {
   environment: Environment,
 }
 
+impl Default for Interpreter {
+  fn default() -> Self {
+    Interpreter::new()
+  }
+}
+
 impl Interpreter {
   pub fn new() -> Self {
     let mut environment = Environment { scopes: Vec::new() };
@@ -77,10 +83,6 @@ impl Interpreter {
     environment.scopes.push(HashMap::new());
 
     Interpreter { environment }
-  }
-
-  pub fn default() -> Self {
-    Interpreter::new()
   }
 
   pub fn evaluate(&mut self, program: &Program) -> Result<Object, InterpreterError> {
