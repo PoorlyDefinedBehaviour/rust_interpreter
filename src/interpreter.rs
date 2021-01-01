@@ -35,12 +35,6 @@ pub struct Environment {
 }
 
 impl Environment {
-  pub fn new() -> Self {
-    Environment {
-      scopes: vec![HashMap::new()],
-    }
-  }
-
   pub fn create_scope(&mut self) {
     self.scopes.push(HashMap::new());
   }
@@ -73,14 +67,16 @@ impl Environment {
 }
 
 pub struct Interpreter {
-  enviroment: Environment,
+  environment: Environment,
 }
 
 impl Interpreter {
   pub fn new() -> Self {
-    Interpreter {
-      enviroment: Environment::new(),
-    }
+    let mut environment = Environment { scopes: Vec::new() };
+
+    environment.scopes.push(HashMap::new());
+
+    Interpreter { environment }
   }
 
   pub fn evaluate(&mut self, program: &Program) -> Result<Object, InterpreterError> {
@@ -102,7 +98,7 @@ impl Interpreter {
         let identifier = statement.identifier.to_string();
         let value = self.eval_expression(&statement.value)?;
 
-        self.enviroment.set_binding(identifier, value.clone())?;
+        self.environment.set_binding(identifier, value.clone())?;
 
         Ok(value)
       }
@@ -190,7 +186,7 @@ impl Interpreter {
           _ => unreachable!(),
         }
       }
-      Expression::Identifier(identifier) => match self.enviroment.get_binding(&identifier) {
+      Expression::Identifier(identifier) => match self.environment.get_binding(&identifier) {
         Some(object) => Ok(object.clone()),
         None => Err(format!("identifier not found: {}", identifier)),
       },
@@ -203,7 +199,7 @@ impl Interpreter {
       Object::Boolean(_) => object,
       Object::Number(number) => Object::Boolean(number != 0.0),
       Object::Null => Object::Boolean(false),
-      Object::Identifier(identifier) => match self.enviroment.get_binding(&identifier) {
+      Object::Identifier(identifier) => match self.environment.get_binding(&identifier) {
         Some(object) => self.to_boolean(object.clone()),
         None => Object::Boolean(false),
       },
