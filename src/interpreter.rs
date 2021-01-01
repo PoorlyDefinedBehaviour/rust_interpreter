@@ -83,6 +83,12 @@ pub struct Environment {
   scopes: Vec<HashMap<String, Object>>,
 }
 
+impl Default for Environment {
+  fn default() -> Self {
+    Environment::new()
+  }
+}
+
 impl Environment {
   pub fn new() -> Self {
     Environment {
