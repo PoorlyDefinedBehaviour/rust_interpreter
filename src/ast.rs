@@ -23,38 +23,38 @@ impl fmt::Display for Program {
   }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct PrefixExpression {
   pub operator: Token,
   pub operand: Box<Expression>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct InfixExpression {
   pub left_operand: Box<Expression>,
   pub operator: Token,
   pub right_operand: Box<Expression>,
 }
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct IfExpression {
   pub condition: Box<Expression>,
-  pub consequence: Box<Statement>,
-  pub alternative: Option<Box<Statement>>,
+  pub consequence: Vec<Statement>,
+  pub alternative: Option<Vec<Statement>>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct FunctionExpression {
-  pub paremeters: Vec<Expression>,
-  pub body: Box<Statement>,
+  pub parameters: Vec<String>,
+  pub body: Vec<Statement>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct CallExpression {
   pub function: Box<Expression>,
   pub arguments: Vec<Expression>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Expression {
   Identifier(String),
   Number(f64),
@@ -82,14 +82,24 @@ impl fmt::Display for Expression {
       ),
       Expression::Boolean(boolean) => write!(f, "{}", boolean),
       Expression::If(expression) => {
-        write!(
-          f,
-          "(if ({}) {}",
-          expression.condition, expression.consequence
-        )?;
+        write!(f, "(if ({}) ", expression.condition)?;
 
-        if let Some(expression) = &expression.alternative {
-          write!(f, " else {})", expression)
+        write!(f, "{{ ")?;
+
+        for statement in &expression.consequence {
+          statement.fmt(f)?;
+        }
+
+        write!(f, " }}")?;
+
+        if let Some(statements) = &expression.alternative {
+          write!(f, " else {{ ")?;
+
+          for statement in statements {
+            statement.fmt(f)?;
+          }
+
+          write!(f, " }})")
         } else {
           write!(f, ")")
         }
@@ -97,7 +107,7 @@ impl fmt::Display for Expression {
       Expression::Function(function) => {
         write!(f, "(fn(")?;
 
-        for (index, parameter) in function.paremeters.iter().enumerate() {
+        for (index, parameter) in function.parameters.iter().enumerate() {
           if index > 0 {
             write!(f, ", {}", parameter)?;
           } else {
@@ -107,9 +117,13 @@ impl fmt::Display for Expression {
 
         write!(f, ") ")?;
 
-        function.body.fmt(f)?;
+        write!(f, "{{ ")?;
 
-        write!(f, ")")
+        for statement in &function.body {
+          statement.fmt(f)?;
+        }
+
+        write!(f, " }})")
       }
       Expression::Call(call) => {
         write!(f, "(")?;
@@ -134,7 +148,7 @@ impl fmt::Display for Expression {
   }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct LetStatement {
   pub token: Token,
   pub identifier: Token,
@@ -153,12 +167,11 @@ impl fmt::Display for LetStatement {
   }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Statement {
   Let(LetStatement),
   Return(Expression),
   Expression(Expression),
-  Block(Vec<Statement>),
 }
 
 impl fmt::Display for Statement {
@@ -170,15 +183,6 @@ impl fmt::Display for Statement {
         statement.fmt(f)
       }
       Statement::Expression(statement) => statement.fmt(f),
-      Statement::Block(statements) => {
-        write!(f, "{{ ")?;
-
-        for statement in statements {
-          statement.fmt(f)?;
-        }
-
-        write!(f, " }}")
-      }
     }
   }
 }
