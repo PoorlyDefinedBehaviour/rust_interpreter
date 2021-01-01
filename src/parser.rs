@@ -60,6 +60,11 @@ impl Parser {
       Parser::parse_number,
     );
 
+    parser.prefix(
+      std::mem::discriminant(&Token::String(String::from("_"))),
+      Parser::parse_string,
+    );
+
     parser.prefix(std::mem::discriminant(&Token::True), Parser::parse_boolean);
 
     parser.prefix(std::mem::discriminant(&Token::False), Parser::parse_boolean);
@@ -429,6 +434,13 @@ impl Parser {
     }
   }
 
+  fn parse_string(&mut self, token: &Token) -> Expression {
+    match &token {
+      Token::String(string) => Expression::String(string.clone()),
+      _ => unreachable!(),
+    }
+  }
+
   fn parse_return_statement(&mut self) -> Result<Statement, String> {
     self.consume(Token::Return);
 
@@ -697,6 +709,27 @@ mod tests {
         "add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8))",
         "(add(a, b, 1, (2 * 3), (4 + 5), (add(6, (7 * 8)))))",
       ),
+    ];
+
+    for (input, expected) in test_cases {
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+
+      let program = parser.parse();
+
+      assert!(!program.has_errors());
+
+      assert_eq!(program.to_string(), expected);
+    }
+  }
+
+  #[test]
+  fn parse_string_expression() {
+    let test_cases = vec![
+      (r#""hello""#, "hello"),
+      (r#""world""#, "world"),
+      (r#""14124912421""#, "14124912421"),
+      (r#""let""#, "let"),
+      (r#""{key: value}""#, "{key: value}"),
     ];
 
     for (input, expected) in test_cases {

@@ -58,6 +58,7 @@ pub struct CallExpression {
 pub enum Expression {
   Identifier(String),
   Number(f64),
+  String(String),
   Prefix(PrefixExpression),
   Infix(InfixExpression),
   Boolean(bool),
@@ -72,6 +73,7 @@ impl fmt::Display for Expression {
     match self {
       Expression::Identifier(identifier) => write!(f, "{}", identifier),
       Expression::Number(number) => write!(f, "{}", number),
+      Expression::String(string) => write!(f, "{}", string),
       Expression::Prefix(expression) => {
         write!(f, "({} {})", expression.operator, expression.operand)
       }
