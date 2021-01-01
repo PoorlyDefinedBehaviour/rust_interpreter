@@ -12,6 +12,7 @@ pub struct FunctionObject {
 #[derive(Debug, PartialEq, Clone)]
 pub enum Object {
   Number(f64),
+  String(String),
   Boolean(bool),
   Null,
   Return(Box<Object>),
@@ -25,6 +26,7 @@ impl fmt::Display for Object {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     match self {
       Object::Number(number) => write!(f, "{}", number),
+      Object::String(string) => write!(f, "{}", string),
       Object::Boolean(boolean) => write!(f, "{}", boolean),
       Object::Null => write!(f, "null"),
       Object::Return(object) => {
@@ -159,6 +161,7 @@ impl Interpreter {
   fn eval_expression(&mut self, expression: Expression) -> Result<Object, InterpreterError> {
     match expression {
       Expression::Number(number) => Ok(Object::Number(number)),
+      Expression::String(string) => Ok(Object::String(string)),
       Expression::Boolean(t) => Ok(Object::Boolean(t)),
       Expression::Prefix(expression) => {
         let operand = self.eval_expression(*expression.operand)?;
@@ -291,6 +294,7 @@ impl Interpreter {
       },
       Object::Function(_) => Object::Boolean(true),
       Object::Return(_) => unreachable!(),
+      Object::String(string) => Object::Boolean(string != ""),
     }
   }
 
@@ -324,6 +328,17 @@ mod tests {
       ("true", Object::Boolean(true)),
       ("false", Object::Boolean(false)),
       ("null", Object::Null),
+      (r#""123""#, Object::String(String::from("123"))),
+      (r#""hello""#, Object::String(String::from("hello"))),
+      (r#""a""#, Object::String(String::from("a"))),
+      (
+        r#""?24421@322r23lr2""#,
+        Object::String(String::from("?24421@322r23lr2")),
+      ),
+      (
+        r#""let hello = |> f()()()()()""#,
+        Object::String(String::from("let hello = |> f()()()()()")),
+      ),
     ];
 
     for (input, expected) in test_cases {
