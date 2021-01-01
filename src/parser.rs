@@ -60,6 +60,11 @@ impl Parser {
       Parser::parse_number,
     );
 
+    parser.prefix(
+      std::mem::discriminant(&Token::String(String::from("_"))),
+      Parser::parse_string,
+    );
+
     parser.prefix(std::mem::discriminant(&Token::True), Parser::parse_boolean);
 
     parser.prefix(std::mem::discriminant(&Token::False), Parser::parse_boolean);
@@ -429,6 +434,13 @@ impl Parser {
     }
   }
 
+  fn parse_string(&mut self, token: &Token) -> Expression {
+    match &token {
+      Token::String(string) => Expression::String(string.clone()),
+      _ => unreachable!(),
+    }
+  }
+
   fn parse_return_statement(&mut self) -> Result<Statement, String> {
     self.consume(Token::Return);
 
@@ -464,7 +476,7 @@ mod tests {
     let test_cases = vec![("let x = 5", "let x = 5")];
 
     for (input, expected) in test_cases {
-      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex().unwrap());
 
       let program = parser.parse();
 
@@ -479,7 +491,7 @@ mod tests {
     let test_cases = vec![("let = 5;", "expected Identifier(\"_\"), got Assign")];
 
     for (input, expected) in test_cases {
-      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex().unwrap());
 
       let program = parser.parse();
 
@@ -501,7 +513,7 @@ mod tests {
     ];
 
     for (input, expected) in test_cases {
-      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex().unwrap());
 
       let program = parser.parse();
 
@@ -522,7 +534,7 @@ mod tests {
     ];
 
     for (input, expected) in test_cases {
-      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex().unwrap());
 
       let program = parser.parse();
 
@@ -537,7 +549,7 @@ mod tests {
     let test_cases = vec![("foobar", "foobar"), ("baz", "baz"), ("hello", "hello")];
 
     for (input, expected) in test_cases {
-      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex().unwrap());
 
       let program = parser.parse();
 
@@ -552,7 +564,7 @@ mod tests {
     let test_cases = vec![("50", "50"), ("10", "10"), ("3", "3"), ("0", "0")];
 
     for (input, expected) in test_cases {
-      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex().unwrap());
 
       let program = parser.parse();
 
@@ -572,7 +584,7 @@ mod tests {
     ];
 
     for (input, expected) in test_cases {
-      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex().unwrap());
 
       let program = parser.parse();
 
@@ -610,7 +622,7 @@ mod tests {
     ];
 
     for (input, expected) in test_cases {
-      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex().unwrap());
 
       let program = parser.parse();
 
@@ -633,7 +645,7 @@ mod tests {
     ];
 
     for (input, expected) in test_cases {
-      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex().unwrap());
 
       let program = parser.parse();
 
@@ -655,7 +667,7 @@ mod tests {
     ];
 
     for (input, expected) in test_cases {
-      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex().unwrap());
 
       let program = parser.parse();
 
@@ -678,7 +690,7 @@ mod tests {
     ];
 
     for (input, expected) in test_cases {
-      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex().unwrap());
 
       let program = parser.parse();
 
@@ -700,7 +712,28 @@ mod tests {
     ];
 
     for (input, expected) in test_cases {
-      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex().unwrap());
+
+      let program = parser.parse();
+
+      assert!(!program.has_errors());
+
+      assert_eq!(program.to_string(), expected);
+    }
+  }
+
+  #[test]
+  fn parse_string_expression() {
+    let test_cases = vec![
+      (r#""hello""#, "hello"),
+      (r#""world""#, "world"),
+      (r#""14124912421""#, "14124912421"),
+      (r#""let""#, "let"),
+      (r#""{key: value}""#, "{key: value}"),
+    ];
+
+    for (input, expected) in test_cases {
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex().unwrap());
 
       let program = parser.parse();
 

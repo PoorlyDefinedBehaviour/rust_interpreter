@@ -33,6 +33,7 @@ pub enum Token {
   If,
   Else,
   Null,
+  String(String),
 }
 
 impl fmt::Display for Token {
@@ -69,6 +70,7 @@ impl fmt::Display for Token {
       Token::If => write!(f, "if"),
       Token::Else => write!(f, "else"),
       Token::Null => write!(f, "null"),
+      Token::String(string) => write!(f, "{}", string),
     }
   }
 }

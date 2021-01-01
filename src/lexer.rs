@@ -1,11 +1,21 @@
 use crate::token::*;
 
+#[derive(Debug, PartialEq, Clone)]
+pub struct LexerError {
+  line: usize,
+  column: usize,
+  message: String,
+}
+
 #[derive(Debug)]
 pub struct Lexer {
   source_code: String,
   position: usize,
   next_position: usize,
+  line: usize,
+  column: usize,
   character: char,
+  errors: Vec<LexerError>,
 }
 
 impl Lexer {
@@ -15,6 +25,9 @@ impl Lexer {
       position: 0,
       next_position: 0,
       character: '\0',
+      line: 1,
+      column: 0,
+      errors: Vec::new(),
     };
 
     lexer.read_character();
@@ -22,14 +35,18 @@ impl Lexer {
     lexer
   }
 
-  pub fn lex(&mut self) -> Vec<Token> {
+  pub fn lex(&mut self) -> Result<Vec<Token>, Vec<LexerError>> {
     let mut tokens = Vec::new();
 
     while self.has_characters_to_lex() {
       tokens.push(self.next_token());
     }
 
-    tokens
+    if !self.errors.is_empty() {
+      return Err(self.errors.clone());
+    }
+
+    Ok(tokens)
   }
 
   fn has_characters_to_lex(&self) -> bool {
@@ -41,6 +58,15 @@ impl Lexer {
       self.character = '\0';
     } else {
       self.character = self.source_code.chars().nth(self.next_position).unwrap();
+    }
+
+    if self.character != '\0' {
+      self.column += 1;
+    }
+
+    if self.character == '\n' {
+      self.line += 1;
+      self.column = 0;
     }
 
     self.position = self.next_position;
@@ -60,6 +86,14 @@ impl Lexer {
     while self.character.is_ascii_whitespace() {
       self.read_character();
     }
+  }
+
+  fn error(&mut self, message: String) {
+    self.errors.push(LexerError {
+      line: self.line,
+      column: self.column,
+      message,
+    });
   }
 
   fn read_identifier(&mut self) -> String {
@@ -98,6 +132,32 @@ impl Lexer {
       .skip(number_starts_at)
       .take(self.position - number_starts_at)
       .collect()
+  }
+
+  fn read_string(&mut self) -> String {
+    let string_starts_at = self.position;
+
+    self.read_character(); // advance past "
+
+    while self.character != '"' && self.has_characters_to_lex() {
+      self.read_character();
+    }
+
+    let string = self
+      .source_code
+      .chars()
+      .skip(string_starts_at + 1)
+      .take(self.position - string_starts_at - 1)
+      .collect();
+
+    if self.character != '"' {
+      self.read_character(); // advance past "
+      self.error(format!(r#"unterminated string: "{}"#, string))
+    } else {
+      self.read_character(); // advance past "
+    }
+
+    string
   }
 
   fn next_character_is(&self, expected_character: char) -> bool {
@@ -165,6 +225,7 @@ impl Lexer {
         }
       }
       '\0' => Token::Eof,
+      '"' => return Token::String(self.read_string()),
       character if character.is_alphabetic() => {
         let identifier = self.read_identifier();
         return lookup_identifier(identifier);
@@ -182,6 +243,31 @@ impl Lexer {
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[test]
+  fn keeps_track_of_line_and_column() {
+    let test_cases: Vec<(&str, usize, usize)> = vec![
+      ("", 1, 0),
+      ("abc", 1, 3),
+      ("", 1, 0),
+      ("a 1 c", 1, 5),
+      (
+        "let a = 10
+let b = 20",
+        2,
+        10,
+      ),
+    ];
+
+    for (input, expected_line, expected_column) in test_cases {
+      let mut lexer = Lexer::new(String::from(input));
+
+      lexer.lex().ok();
+
+      assert_eq!(lexer.line, expected_line);
+      assert_eq!(lexer.column, expected_column);
+    }
+  }
 
   #[test]
   fn let_statements() {
@@ -213,7 +299,7 @@ mod tests {
     for (input, expected_tokens) in test_cases {
       let mut lexer = Lexer::new(String::from(input));
 
-      assert_eq!(expected_tokens, lexer.lex());
+      assert_eq!(expected_tokens, lexer.lex().unwrap());
     }
   }
 
@@ -236,7 +322,7 @@ mod tests {
     for (input, expected_tokens) in test_cases {
       let mut lexer = Lexer::new(String::from(input));
 
-      assert_eq!(expected_tokens, lexer.lex());
+      assert_eq!(expected_tokens, lexer.lex().unwrap());
     }
   }
 
@@ -262,7 +348,7 @@ mod tests {
     for (input, expected_tokens) in test_cases {
       let mut lexer = Lexer::new(String::from(input));
 
-      assert_eq!(expected_tokens, lexer.lex());
+      assert_eq!(expected_tokens, lexer.lex().unwrap());
     }
   }
 
@@ -279,7 +365,7 @@ mod tests {
     for (input, expected_tokens) in test_cases {
       let mut lexer = Lexer::new(String::from(input));
 
-      assert_eq!(expected_tokens, lexer.lex());
+      assert_eq!(expected_tokens, lexer.lex().unwrap());
     }
   }
 
@@ -305,7 +391,7 @@ mod tests {
     for (input, expected_tokens) in test_cases {
       let mut lexer = Lexer::new(String::from(input));
 
-      assert_eq!(expected_tokens, lexer.lex());
+      assert_eq!(expected_tokens, lexer.lex().unwrap());
     }
   }
 
@@ -357,7 +443,7 @@ mod tests {
     for (input, expected_tokens) in test_cases {
       let mut lexer = Lexer::new(String::from(input));
 
-      assert_eq!(expected_tokens, lexer.lex());
+      assert_eq!(expected_tokens, lexer.lex().unwrap());
     }
   }
 
@@ -405,7 +491,56 @@ mod tests {
     for (input, expected_tokens) in test_cases {
       let mut lexer = Lexer::new(String::from(input));
 
-      assert_eq!(expected_tokens, lexer.lex());
+      assert_eq!(expected_tokens, lexer.lex().unwrap());
+    }
+  }
+
+  #[test]
+  fn strings() {
+    let test_cases: Vec<(&str, Vec<Token>)> = vec![
+      (
+        r#""10""#,
+        vec![Token::String(String::from("10")), Token::Eof],
+      ),
+      (
+        r#""hello world""#,
+        vec![Token::String(String::from("hello world")), Token::Eof],
+      ),
+      (
+        r#""-421894124128""#,
+        vec![Token::String(String::from("-421894124128")), Token::Eof],
+      ),
+      (
+        r#""let f = fn(x) { f() }""#,
+        vec![
+          Token::String(String::from("let f = fn(x) { f() }")),
+          Token::Eof,
+        ],
+      ),
+    ];
+
+    for (input, expected_tokens) in test_cases {
+      let mut lexer = Lexer::new(String::from(input));
+
+      assert_eq!(expected_tokens, lexer.lex().unwrap());
+    }
+  }
+
+  #[test]
+  fn lexer_errors() {
+    let test_cases: Vec<(&str, Vec<LexerError>)> = vec![(
+      r#""10"#,
+      vec![LexerError {
+        line: 1,
+        column: 3,
+        message: String::from(r#"unterminated string: "10"#),
+      }],
+    )];
+
+    for (input, expected_errors) in test_cases {
+      let mut lexer = Lexer::new(String::from(input));
+
+      assert_eq!(Err(expected_errors), lexer.lex());
     }
   }
 }

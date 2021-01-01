@@ -19,21 +19,27 @@ fn main() {
 
     let mut lexer = Lexer::new(buffer);
 
-    let mut parser = Parser::new(lexer.lex());
+    match lexer.lex() {
+      Err(errors) => {
+        dbg!(errors);
+      }
+      Ok(tokens) => {
+        let mut parser = Parser::new(tokens);
 
-    let program = parser.parse();
+        let program = parser.parse();
 
-    if program.has_errors() {
-      dbg!(&program.errors);
-    } else {
-      dbg!(&program.statements);
-
-      match interpreter.evaluate(program) {
-        Ok(result) => {
-          println!("{}", result);
-        }
-        Err(message) => {
-          dbg!(message);
+        if program.has_errors() {
+          dbg!(&program.errors);
+        } else {
+          dbg!(&program.statements);
+          match interpreter.evaluate(program) {
+            Ok(result) => {
+              println!("{}", result);
+            }
+            Err(message) => {
+              dbg!(message);
+            }
+          }
         }
       }
     }
