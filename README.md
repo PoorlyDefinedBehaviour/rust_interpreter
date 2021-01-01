@@ -6,4 +6,16 @@ Based on: </br>
 - https://interpreterbook.com/
 - https://craftinginterpreters.com/
 
+**Running tests**
+
+```console
+> cargo t
+```
+
+**Starting the repl**
+
+```console
+> cargo run
+```
+
 ![preview](assets/preview.gif)
