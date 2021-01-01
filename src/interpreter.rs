@@ -798,6 +798,7 @@ mod tests {
         "len(fn(x){ x + 2})",
         "len() can't be used on (fn(x) (x + 2))",
       ),
+      ("len(x)", "identifier not found: x"),
     ];
 
     for (input, expected) in test_cases {
