@@ -9,6 +9,26 @@ pub struct FunctionObject {
   pub body: Vec<Statement>,
 }
 
+pub struct BuiltinFunction(fn(&Interpreter, Vec<Object>) -> Result<Object, InterpreterError>);
+
+impl fmt::Debug for BuiltinFunction {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(f, "fn(...) {{ /* internal */ }}")
+  }
+}
+
+impl std::cmp::PartialEq for BuiltinFunction {
+  fn eq(&self, _other: &Self) -> bool {
+    false
+  }
+}
+
+impl std::clone::Clone for BuiltinFunction {
+  fn clone(&self) -> Self {
+    BuiltinFunction(self.0)
+  }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum Object {
   Number(f64),
@@ -18,6 +38,7 @@ pub enum Object {
   Return(Box<Object>),
   Identifier(String),
   Function(FunctionObject),
+  BuiltinFunction(BuiltinFunction),
 }
 
 type InterpreterError = String;
@@ -53,16 +74,22 @@ impl fmt::Display for Object {
 
         write!(f, ")")
       }
+      _ => unreachable!(),
     }
   }
 }
 
-#[derive(Debug)]
 pub struct Environment {
   scopes: Vec<HashMap<String, Object>>,
 }
 
 impl Environment {
+  pub fn new() -> Self {
+    Environment {
+      scopes: vec![HashMap::new()],
+    }
+  }
+
   pub fn create_scope(&mut self) {
     self.scopes.push(HashMap::new());
   }
@@ -112,11 +139,42 @@ impl Default for Interpreter {
 
 impl Interpreter {
   pub fn new() -> Self {
-    let mut environment = Environment { scopes: Vec::new() };
+    let mut interpreter = Interpreter {
+      environment: Environment::new(),
+    };
 
-    environment.scopes.push(HashMap::new());
+    interpreter
+      .environment
+      .set_binding(
+        String::from("len"),
+        Object::BuiltinFunction(BuiltinFunction(Interpreter::len)),
+      )
+      .unwrap();
 
-    Interpreter { environment }
+    interpreter
+  }
+
+  fn len(&self, arguments: Vec<Object>) -> Result<Object, InterpreterError> {
+    if arguments.len() != 1 {
+      return Err(format!(
+        "len() expected one argument, got {}",
+        arguments.len()
+      ));
+    }
+
+    let argument = match arguments.first().unwrap() {
+      Object::Identifier(identifier) => match self.environment.get_binding(identifier) {
+        Some(object) => match object {
+          Object::String(string) => string,
+          object => return Err(format!("len() can't be used on {}", object)),
+        },
+        None => return Err(format!("identifier not found: {}", identifier)),
+      },
+      Object::String(string) => string,
+      object => return Err(format!("len() can't be used on {}", object)),
+    };
+
+    Ok(Object::Number(argument.len() as f64))
   }
 
   pub fn evaluate(&mut self, program: Program) -> Result<Object, InterpreterError> {
@@ -251,9 +309,18 @@ impl Interpreter {
     &mut self,
     expression: CallExpression,
   ) -> Result<Object, InterpreterError> {
+    let mut arguments = Vec::new();
+
+    for argument in &expression.arguments {
+      arguments.push(self.eval_expression(argument.clone())?);
+    }
+
     let (parameters, function_body) = match *expression.function {
       Expression::Function(function) => (function.parameters, function.body),
       Expression::Identifier(identifier) => match self.environment.get_binding(&identifier) {
+        Some(Object::BuiltinFunction(BuiltinFunction(builtin_function))) => {
+          return builtin_function(self, arguments)
+        }
         Some(Object::Function(function)) => (function.parameters.clone(), function.body.clone()),
         _ => return Err(format!("identifier not found: {}", identifier)),
       },
@@ -266,12 +333,6 @@ impl Interpreter {
         parameters.len(),
         expression.arguments.len(),
       ));
-    }
-
-    let mut arguments = Vec::new();
-
-    for argument in expression.arguments {
-      arguments.push(self.eval_expression(argument)?);
     }
 
     for (parameter, argument) in parameters.iter().zip(arguments.iter()) {
@@ -292,9 +353,9 @@ impl Interpreter {
         Some(object) => self.to_boolean(&object),
         None => Object::Boolean(false),
       },
-      Object::Function(_) => Object::Boolean(true),
-      Object::Return(_) => unreachable!(),
+      Object::Function(_) | Object::BuiltinFunction(_) => Object::Boolean(true),
       Object::String(string) => Object::Boolean(!string.is_empty()),
+      Object::Return(_) => unreachable!(),
     }
   }
 
@@ -697,6 +758,49 @@ mod tests {
       let mut interpreter = Interpreter::new();
 
       assert_eq!(interpreter.evaluate(program).unwrap(), expected);
+    }
+  }
+
+  #[test]
+  fn builtin_len_function() {
+    let test_cases: Vec<(&str, Object)> = vec![
+      (r#"len("hello world")"#, Object::Number(11.0)),
+      (r#"len("")"#, Object::Number(0.0)),
+      (r#"len("123")"#, Object::Number(3.0)),
+    ];
+
+    for (input, expected) in test_cases {
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex().unwrap());
+
+      let program = parser.parse();
+      let mut interpreter = Interpreter::new();
+
+      assert_eq!(interpreter.evaluate(program).unwrap(), expected);
+    }
+  }
+
+  #[test]
+  fn builtin_len_function_errors() {
+    let test_cases: Vec<(&str, &str)> = vec![
+      ("len(1)", "len() can't be used on 1"),
+      ("len()", "len() expected one argument, got 0"),
+      (
+        r#"len("hello", "world")"#,
+        "len() expected one argument, got 2",
+      ),
+      (
+        "len(fn(x){ x + 2})",
+        "len() can't be used on (fn(x) (x + 2))",
+      ),
+    ];
+
+    for (input, expected) in test_cases {
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex().unwrap());
+
+      let program = parser.parse();
+      let mut interpreter = Interpreter::new();
+
+      assert_eq!(interpreter.evaluate(program), Err(String::from(expected)));
     }
   }
 }
