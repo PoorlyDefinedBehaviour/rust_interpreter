@@ -1,4 +1,4 @@
-use crate::ast::{Expression, Program, Statement};
+use crate::ast::{CallExpression, Expression, Program, Statement};
 use crate::token::Token;
 use std::collections::HashMap;
 use std::fmt;
@@ -234,38 +234,7 @@ impl Interpreter {
       Expression::Call(expression) => {
         self.environment.create_scope();
 
-        let (parameters, function_body) = match *expression.function {
-          Expression::Function(function) => (function.parameters, function.body),
-          Expression::Identifier(identifier) => match self.environment.get_binding(&identifier) {
-            Some(Object::Function(function)) => {
-              (function.parameters.clone(), function.body.clone())
-            }
-            _ => return Err(format!("identifier not found: {}", identifier)),
-          },
-          _ => unreachable!(),
-        };
-
-        if expression.arguments.len() != parameters.len() {
-          return Err(format!(
-            "expected {} arguments, got {}",
-            parameters.len(),
-            expression.arguments.len(),
-          ));
-        }
-
-        let mut arguments = Vec::new();
-
-        for argument in expression.arguments {
-          arguments.push(self.eval_expression(argument)?);
-        }
-
-        for (parameter, argument) in parameters.iter().zip(arguments.iter()) {
-          self
-            .environment
-            .set_binding(parameter.clone(), argument.clone())?;
-        }
-
-        let return_value = self.eval_statements(function_body)?;
+        let return_value = self.evaluate_function_call(expression)?;
 
         self.environment.destroy_current_scope();
 
@@ -273,6 +242,42 @@ impl Interpreter {
       }
       Expression::Null => Ok(Object::Null),
     }
+  }
+
+  fn evaluate_function_call(
+    &mut self,
+    expression: CallExpression,
+  ) -> Result<Object, InterpreterError> {
+    let (parameters, function_body) = match *expression.function {
+      Expression::Function(function) => (function.parameters, function.body),
+      Expression::Identifier(identifier) => match self.environment.get_binding(&identifier) {
+        Some(Object::Function(function)) => (function.parameters.clone(), function.body.clone()),
+        _ => return Err(format!("identifier not found: {}", identifier)),
+      },
+      expression => return Err(format!("expression is not a function: {}", expression)),
+    };
+
+    if expression.arguments.len() != parameters.len() {
+      return Err(format!(
+        "expected {} arguments, got {}",
+        parameters.len(),
+        expression.arguments.len(),
+      ));
+    }
+
+    let mut arguments = Vec::new();
+
+    for argument in expression.arguments {
+      arguments.push(self.eval_expression(argument)?);
+    }
+
+    for (parameter, argument) in parameters.iter().zip(arguments.iter()) {
+      self
+        .environment
+        .set_binding(parameter.clone(), argument.clone())?;
+    }
+
+    Ok(self.eval_statements(function_body)?)
   }
 
   fn to_boolean(&self, object: &Object) -> Object {
@@ -467,19 +472,14 @@ mod tests {
       ("false / true", "unexpected infix expression: false / true"),
       ("true / true", "unexpected infix expression: true / true"),
       ("true / false", "unexpected infix expression: true / false"),
-      (
-        "false |> false",
-        "unexpected infix expression: false |> false",
-      ),
-      (
-        "false |> true",
-        "unexpected infix expression: false |> true",
-      ),
-      ("true |> true", "unexpected infix expression: true |> true"),
-      (
-        "true |> false",
-        "unexpected infix expression: true |> false",
-      ),
+      ("false |> false", "expression is not a function: false"),
+      ("false |> true", "expression is not a function: true"),
+      ("true |> true", "expression is not a function: true"),
+      ("true |> false", "expression is not a function: false"),
+      ("true |> 10", "expression is not a function: 10"),
+      ("true |> 32", "expression is not a function: 32"),
+      ("true |> -1", "expression is not a function: (- 1)"),
+      ("10 |> 0", "expression is not a function: 0"),
     ];
 
     for (input, expected) in test_cases {
@@ -666,6 +666,13 @@ mod tests {
         Object::Number(120.0),
       ),
       ("fn(x) { x }(3)", Object::Number(3.0)),
+      (
+        "
+          let double = fn(x) { x * 2 }
+          2 |> double |> double
+        ",
+        Object::Number(8.0),
+      ),
     ];
 
     for (input, expected) in test_cases {

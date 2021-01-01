@@ -1,8 +1,11 @@
+use interpreter::interpreter::Interpreter;
 use interpreter::lexer::Lexer;
 use interpreter::parser::Parser;
 use std::io::{self, Write};
 
 fn main() {
+  let mut interpreter = Interpreter::new();
+
   loop {
     print!("> ");
 
@@ -21,9 +24,18 @@ fn main() {
     let program = parser.parse();
 
     if program.has_errors() {
-      dbg!(program.errors);
+      dbg!(&program.errors);
     } else {
-      dbg!(program.statements);
+      dbg!(&program.statements);
+
+      match interpreter.evaluate(program) {
+        Ok(result) => {
+          println!("{}", result);
+        }
+        Err(message) => {
+          dbg!(message);
+        }
+      }
     }
   }
 }

@@ -276,6 +276,13 @@ impl Parser {
       .parse_expression_statement(token_precedence(Some(token)))
       .unwrap();
 
+    if matches!(token, Token::Pipe) {
+      return Expression::Call(CallExpression {
+        function: Box::new(right_operand),
+        arguments: vec![left_operand],
+      });
+    }
+
     Expression::Infix(InfixExpression {
       left_operand: Box::new(left_operand),
       operator: token.clone(),
@@ -588,10 +595,10 @@ mod tests {
       ("5 != 5", "(5 != 5)"),
       ("5 <= 5", "(5 <= 5)"),
       ("5 >= 5", "(5 >= 5)"),
-      ("x |> f", "(x |> f)"),
-      ("a <= b |> f", "(a <= (b |> f))"),
-      ("a |> f |> g", "((a |> f) |> g)"),
-      ("a |> f > x", "((a |> f) > x)"),
+      ("x |> f", "(f(x))"),
+      ("a <= b |> f", "(a <= (f(b)))"),
+      ("a |> f |> g", "(g((f(a))))"),
+      ("a |> f > x", "((f(a)) > x)"),
       ("a + b + c", "((a + b) + c)"),
       ("a + b - c", "((a + b) - c)"),
       ("a * b * c", "((a * b) * c)"),
@@ -606,8 +613,6 @@ mod tests {
       let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
 
       let program = parser.parse();
-
-      dbg!(&program.errors);
 
       assert!(!program.has_errors());
 
