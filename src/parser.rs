@@ -476,7 +476,7 @@ mod tests {
     let test_cases = vec![("let x = 5", "let x = 5")];
 
     for (input, expected) in test_cases {
-      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex().unwrap());
 
       let program = parser.parse();
 
@@ -491,7 +491,7 @@ mod tests {
     let test_cases = vec![("let = 5;", "expected Identifier(\"_\"), got Assign")];
 
     for (input, expected) in test_cases {
-      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex().unwrap());
 
       let program = parser.parse();
 
@@ -513,7 +513,7 @@ mod tests {
     ];
 
     for (input, expected) in test_cases {
-      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex().unwrap());
 
       let program = parser.parse();
 
@@ -534,7 +534,7 @@ mod tests {
     ];
 
     for (input, expected) in test_cases {
-      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex().unwrap());
 
       let program = parser.parse();
 
@@ -549,7 +549,7 @@ mod tests {
     let test_cases = vec![("foobar", "foobar"), ("baz", "baz"), ("hello", "hello")];
 
     for (input, expected) in test_cases {
-      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex().unwrap());
 
       let program = parser.parse();
 
@@ -564,7 +564,7 @@ mod tests {
     let test_cases = vec![("50", "50"), ("10", "10"), ("3", "3"), ("0", "0")];
 
     for (input, expected) in test_cases {
-      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex().unwrap());
 
       let program = parser.parse();
 
@@ -584,7 +584,7 @@ mod tests {
     ];
 
     for (input, expected) in test_cases {
-      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex().unwrap());
 
       let program = parser.parse();
 
@@ -622,7 +622,7 @@ mod tests {
     ];
 
     for (input, expected) in test_cases {
-      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex().unwrap());
 
       let program = parser.parse();
 
@@ -645,7 +645,7 @@ mod tests {
     ];
 
     for (input, expected) in test_cases {
-      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex().unwrap());
 
       let program = parser.parse();
 
@@ -667,7 +667,7 @@ mod tests {
     ];
 
     for (input, expected) in test_cases {
-      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex().unwrap());
 
       let program = parser.parse();
 
@@ -690,7 +690,7 @@ mod tests {
     ];
 
     for (input, expected) in test_cases {
-      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex().unwrap());
 
       let program = parser.parse();
 
@@ -712,7 +712,7 @@ mod tests {
     ];
 
     for (input, expected) in test_cases {
-      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex().unwrap());
 
       let program = parser.parse();
 
@@ -733,7 +733,7 @@ mod tests {
     ];
 
     for (input, expected) in test_cases {
-      let mut parser = Parser::new(Lexer::new(String::from(input)).lex());
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex().unwrap());
 
       let program = parser.parse();
 
