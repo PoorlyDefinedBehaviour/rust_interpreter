@@ -321,10 +321,7 @@ impl Parser {
 
     let body = self.parse_block_statement();
 
-    Expression::Function(FunctionExpression {
-      parameters: parameters,
-      body,
-    })
+    Expression::Function(FunctionExpression { parameters, body })
   }
 
   fn parse_function_parameters(&mut self) -> Vec<String> {
