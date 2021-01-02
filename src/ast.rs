@@ -65,6 +65,7 @@ pub enum Expression {
   If(IfExpression),
   Function(FunctionExpression),
   Call(CallExpression),
+  Array(Vec<Expression>),
   Null,
 }
 
@@ -146,6 +147,19 @@ impl fmt::Display for Expression {
         Ok(())
       }
       Expression::Null => write!(f, "(null)"),
+      Expression::Array(expressions) => {
+        write!(f, "([")?;
+
+        for (index, expression) in expressions.iter().enumerate() {
+          expression.fmt(f)?;
+
+          if index < expressions.len() - 1 {
+            write!(f, ", ")?;
+          }
+        }
+
+        write!(f, "])")
+      }
     }
   }
 }

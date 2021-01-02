@@ -94,6 +94,11 @@ impl Parser {
       Parser::parse_function_literal,
     );
 
+    parser.prefix(
+      std::mem::discriminant(&Token::LeftBracket),
+      Parser::parse_array,
+    );
+
     parser.infix(
       std::mem::discriminant(&Token::Plus),
       Parser::parse_infix_expression,
@@ -203,12 +208,12 @@ impl Parser {
   fn consume(&mut self, expected_token: Token) {
     match self.next_token() {
       Some(token) if *token != expected_token => {
-        let error = format!("expected {:?}, got {:?}", expected_token, token);
+        let error = format!("expected {}, got {}", expected_token, token);
 
         self.errors.push(error);
       }
       None => {
-        let error = format!("expected {:?}, got nothing", expected_token);
+        let error = format!("expected {}, got nothing", expected_token);
 
         self.errors.push(error);
       }
@@ -326,6 +331,26 @@ impl Parser {
       consequence,
       alternative,
     })
+  }
+
+  fn parse_array(&mut self, _token: &Token) -> Expression {
+    let mut elements: Vec<Expression> = Vec::new();
+
+    while self.has_tokens_to_parse()
+      && !matches!(self.current_token(), Some(token) if token == &Token::RightBracket)
+    {
+      elements.push(self.parse_expression_statement(Precedence::NONE).unwrap());
+
+      if self.has_tokens_to_parse()
+        && matches!(self.current_token(), Some(token) if token != &Token::RightBracket)
+      {
+        self.consume(Token::Comma);
+      }
+    }
+
+    self.consume(Token::RightBracket);
+
+    Expression::Array(elements)
   }
 
   fn parse_function_literal(&mut self, _token: &Token) -> Expression {
@@ -740,6 +765,45 @@ mod tests {
       assert!(!program.has_errors());
 
       assert_eq!(program.to_string(), expected);
+    }
+  }
+
+  #[test]
+  fn parse_arrays() {
+    let test_cases = vec![
+      ("[1, 2, 3]", "([1, 2, 3])"),
+      (
+        "[1 + 1, 2 * 2, fn(x) { x * 2} ]",
+        "([(1 + 1), (2 * 2), (fn(x) { (x * 2) })])",
+      ),
+    ];
+
+    for (input, expected) in test_cases {
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex().unwrap());
+
+      let program = parser.parse();
+
+      assert!(!program.has_errors());
+
+      assert_eq!(program.to_string(), expected);
+    }
+  }
+
+  #[test]
+  fn parse_array_errors() {
+    let test_cases = vec![
+      ("[1, 2, 3", "expected ], got EOF"),
+      ("[a, b!]", "expected ,, got !"),
+    ];
+
+    for (input, expected) in test_cases {
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex().unwrap());
+
+      let program = parser.parse();
+
+      assert!(program.has_errors());
+
+      assert_eq!(program.errors[0], expected);
     }
   }
 }
