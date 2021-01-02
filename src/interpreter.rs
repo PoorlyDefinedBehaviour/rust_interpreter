@@ -56,25 +56,7 @@ impl fmt::Display for Object {
         object.fmt(f)
       }
       Object::Identifier(identifier) => write!(f, "{}", identifier),
-      Object::Function(function) => {
-        write!(f, "(fn(")?;
-
-        for (index, parameter) in function.parameters.iter().enumerate() {
-          if index > 0 {
-            write!(f, ", {}", parameter)?;
-          } else {
-            write!(f, "{}", parameter)?;
-          }
-        }
-
-        write!(f, ") ")?;
-
-        for statement in &function.body {
-          statement.fmt(f)?;
-        }
-
-        write!(f, ")")
-      }
+      Object::Function(_) => write!(f, "function"),
       Object::Array(objects) => {
         write!(f, "[")?;
 
@@ -331,6 +313,37 @@ impl Interpreter {
 
         Ok(Object::Array(objects))
       }
+      Expression::Access(expression) => match expression.object {
+        Expression::Array(_) => {
+          let array = self.eval_expression(expression.object)?;
+
+          let index = self.eval_expression(expression.key)?;
+
+          match (array, index) {
+            (Object::Array(objects), Object::Number(index)) => {
+              if index.fract() != 0.0 {
+                return Err(format!("expected integer, got {}", index));
+              }
+
+              let rounded_index = index.round() as i64;
+
+              if rounded_index < 0 {
+                return Ok(Object::Null);
+              }
+
+              let value = match objects.get(rounded_index as usize) {
+                Some(object) => object.clone(),
+                None => Object::Null,
+              };
+
+              Ok(value)
+            }
+            (Object::Array(_), object) => Err(format!("expected integer, got {}", object)),
+            _ => unreachable!(),
+          }
+        }
+        _ => unreachable!(),
+      },
     }
   }
 
@@ -820,10 +833,7 @@ mod tests {
         r#"len("hello", "world")"#,
         "len() expected one argument, got 2",
       ),
-      (
-        "len(fn(x){ x + 2})",
-        "len() can't be used on (fn(x) (x + 2))",
-      ),
+      ("len(fn(x){ x + 2})", "len() can't be used on function"),
       ("len(x)", "identifier not found: x"),
     ];
 
@@ -872,9 +882,49 @@ mod tests {
       let mut parser = Parser::new(Lexer::new(String::from(input)).lex().unwrap());
 
       let program = parser.parse();
+
       let mut interpreter = Interpreter::new();
 
       assert_eq!(interpreter.evaluate(program).unwrap(), expected);
+    }
+  }
+
+  #[test]
+  fn evaluate_array_access_expression() {
+    let test_cases: Vec<(&str, Object)> = vec![
+      ("[1, 2, 3][0]", Object::Number(1.0)),
+      ("[1, 2, 3][3]", Object::Null),
+      ("[1, 2, 3][-1]", Object::Null),
+      ("[1, 2, 3][3]", Object::Null),
+      ("[1, 2, 3][2]", Object::Number(3.0)),
+    ];
+
+    for (input, expected) in test_cases {
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex().unwrap());
+
+      let program = parser.parse();
+      let mut interpreter = Interpreter::new();
+
+      assert_eq!(interpreter.evaluate(program).unwrap(), expected);
+    }
+  }
+
+  #[test]
+  fn evaluate_array_access_expression_errors() {
+    let test_cases: Vec<(&str, &str)> = vec![
+      ("[1, 2, 3][[]]", "expected integer, got []"),
+      ("[1, 2, 3][fn(x){}]", "expected integer, got function"),
+      (r#"[1, 2, 3]["1"]"#, "expected integer, got 1"),
+      ("[1, 2, 3][2.5]", "expected integer, got 2.5"),
+    ];
+
+    for (input, expected) in test_cases {
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex().unwrap());
+
+      let program = parser.parse();
+      let mut interpreter = Interpreter::new();
+
+      assert_eq!(interpreter.evaluate(program), Err(String::from(expected)));
     }
   }
 }
