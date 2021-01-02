@@ -34,6 +34,8 @@ pub enum Token {
   Else,
   Null,
   String(String),
+  LeftBracket,
+  RightBracket,
 }
 
 impl fmt::Display for Token {
@@ -71,6 +73,8 @@ impl fmt::Display for Token {
       Token::Else => write!(f, "else"),
       Token::Null => write!(f, "null"),
       Token::String(string) => write!(f, "{}", string),
+      Token::LeftBracket => write!(f, "["),
+      Token::RightBracket => write!(f, "]"),
     }
   }
 }

@@ -184,6 +184,8 @@ impl Lexer {
       '}' => Token::RightBrace,
       '*' => Token::Star,
       '/' => Token::Slash,
+      '[' => Token::LeftBracket,
+      ']' => Token::RightBracket,
       '|' => {
         if self.next_character_is('>') {
           self.read_character();
@@ -294,6 +296,22 @@ let b = 20",
           Token::Eof,
         ],
       ),
+      (
+        "let array = [1, 2, 3]",
+        vec![
+          Token::Let,
+          Token::Identifier(String::from("array")),
+          Token::Assign,
+          Token::LeftBracket,
+          Token::Number(String::from("1")),
+          Token::Comma,
+          Token::Number(String::from("2")),
+          Token::Comma,
+          Token::Number(String::from("3")),
+          Token::RightBracket,
+          Token::Eof,
+        ],
+      ),
     ];
 
     for (input, expected_tokens) in test_cases {
@@ -343,6 +361,8 @@ let b = 20",
       ("/", vec![Token::Slash, Token::Eof]),
       (">", vec![Token::GreaterThan, Token::Eof]),
       ("<", vec![Token::LessThan, Token::Eof]),
+      ("[", vec![Token::LeftBracket, Token::Eof]),
+      ("]", vec![Token::RightBracket, Token::Eof]),
     ];
 
     for (input, expected_tokens) in test_cases {
