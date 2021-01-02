@@ -55,6 +55,12 @@ pub struct CallExpression {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+pub struct AcessExpression {
+  pub object: Expression,
+  pub key: Expression,
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub enum Expression {
   Identifier(String),
   Number(f64),
@@ -67,6 +73,7 @@ pub enum Expression {
   Call(CallExpression),
   Array(Vec<Expression>),
   Null,
+  Access(Box<AcessExpression>),
 }
 
 impl fmt::Display for Expression {
@@ -159,6 +166,20 @@ impl fmt::Display for Expression {
         }
 
         write!(f, "])")
+      }
+      Expression::Access(expression) => {
+        write!(f, "(")?;
+
+        match expression.object {
+          Expression::Array(_) => {
+            expression.object.fmt(f)?;
+            write!(f, "[{}]", expression.key)?;
+          }
+
+          _ => unreachable!(),
+        }
+
+        write!(f, ")")
       }
     }
   }

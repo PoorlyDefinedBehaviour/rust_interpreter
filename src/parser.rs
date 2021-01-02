@@ -13,6 +13,7 @@ impl Precedence {
   pub const FACTOR: i32 = 7; // * /
   pub const UNARY: i32 = 8; // ! -
   pub const CALL: i32 = 9; // . () |>
+  pub const ACCESS: i32 = 10; // [...][number]
 }
 
 fn token_precedence(token: Option<&Token>) -> i32 {
@@ -25,6 +26,7 @@ fn token_precedence(token: Option<&Token>) -> i32 {
     Some(Token::Plus) | Some(Token::Minus) => Precedence::TERM,
     Some(Token::Star) | Some(Token::Slash) => Precedence::FACTOR,
     Some(Token::Pipe) | Some(Token::LeftParen) => Precedence::CALL,
+    Some(Token::LeftBracket) => Precedence::ACCESS,
     _ => Precedence::NONE,
   }
 }
@@ -159,6 +161,11 @@ impl Parser {
       Parser::parse_function_call_expression,
     );
 
+    parser.infix(
+      std::mem::discriminant(&Token::LeftBracket),
+      Parser::parse_access_expression,
+    );
+
     parser
   }
 
@@ -259,6 +266,12 @@ impl Parser {
             return Ok(left);
           }
 
+          if !matches!(&left, Expression::Array(_))
+            && matches!(self.current_token(), Some(Token::LeftBracket))
+          {
+            return Ok(left);
+          }
+
           token = self.next_token().cloned().unwrap();
 
           let infix_parselet = self
@@ -353,7 +366,24 @@ impl Parser {
     Expression::Array(elements)
   }
 
-  fn parse_function_literal(&mut self, _token: &Token) -> Expression {
+  fn parse_access_expression(
+    &mut self,
+    accessable_object: Expression,
+    _left_bracket: &Token,
+  ) -> Expression {
+    let key = self.parse_expression_statement(Precedence::NONE).unwrap();
+
+    let expression = Expression::Access(Box::new(AcessExpression {
+      object: accessable_object,
+      key,
+    }));
+
+    self.consume(Token::RightBracket);
+
+    expression
+  }
+
+  fn parse_function_literal(&mut self, _left_paren: &Token) -> Expression {
     let parameters = self.parse_function_parameters();
 
     let body = self.parse_block_statement();
@@ -804,6 +834,21 @@ mod tests {
       assert!(program.has_errors());
 
       assert_eq!(program.errors[0], expected);
+    }
+  }
+
+  #[test]
+  fn parse_array_index_expression() {
+    let test_cases = vec![("[1, 2, 3][0]", "(([1, 2, 3])[0])")];
+
+    for (input, expected) in test_cases {
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex().unwrap());
+
+      let program = parser.parse();
+
+      assert!(!program.has_errors());
+
+      assert_eq!(program.to_string(), expected);
     }
   }
 }
