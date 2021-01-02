@@ -896,6 +896,13 @@ mod tests {
       ("[1, 2, 3][3]", Object::Null),
       ("[1, 2, 3][-1]", Object::Null),
       ("[1, 2, 3][2]", Object::Number(3.0)),
+      (
+        "
+        let index = 1
+        [1, 2, 3][index]
+      ",
+        Object::Number(2.0),
+      ),
     ];
 
     for (input, expected) in test_cases {
