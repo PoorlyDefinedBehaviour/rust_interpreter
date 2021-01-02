@@ -39,6 +39,7 @@ pub enum Object {
   Identifier(String),
   Function(FunctionObject),
   BuiltinFunction(BuiltinFunction),
+  Array(Vec<Object>),
 }
 
 type InterpreterError = String;
@@ -73,6 +74,19 @@ impl fmt::Display for Object {
         }
 
         write!(f, ")")
+      }
+      Object::Array(objects) => {
+        write!(f, "[")?;
+
+        for (index, object) in objects.iter().enumerate() {
+          object.fmt(f)?;
+
+          if index < objects.len() {
+            write!(f, ", ")?;
+          }
+        }
+
+        write!(f, "]")
       }
       _ => unreachable!(),
     }
@@ -170,17 +184,17 @@ impl Interpreter {
 
     let argument = match arguments.first().unwrap() {
       Object::Identifier(identifier) => match self.environment.get_binding(identifier) {
-        Some(object) => match object {
-          Object::String(string) => string,
-          object => return Err(format!("len() can't be used on {}", object)),
-        },
+        Some(object) => object,
         None => return Err(format!("identifier not found: {}", identifier)),
       },
-      Object::String(string) => string,
-      object => return Err(format!("len() can't be used on {}", object)),
+      object => object,
     };
 
-    Ok(Object::Number(argument.len() as f64))
+    match argument {
+      Object::String(string) => Ok(Object::Number(string.len() as f64)),
+      Object::Array(value) => Ok(Object::Number(value.len() as f64)),
+      object => return Err(format!("len() can't be used on {}", object)),
+    }
   }
 
   pub fn evaluate(&mut self, program: Program) -> Result<Object, InterpreterError> {
@@ -308,6 +322,15 @@ impl Interpreter {
         Ok(return_value)
       }
       Expression::Null => Ok(Object::Null),
+      Expression::Array(expressions) => {
+        let mut objects = Vec::new();
+
+        for expression in expressions {
+          objects.push(self.eval_expression(expression)?);
+        }
+
+        Ok(Object::Array(objects))
+      }
     }
   }
 
@@ -359,7 +382,7 @@ impl Interpreter {
         Some(object) => self.to_boolean(&object),
         None => Object::Boolean(false),
       },
-      Object::Function(_) | Object::BuiltinFunction(_) => Object::Boolean(true),
+      Object::Function(_) | Object::BuiltinFunction(_) | Object::Array(_) => Object::Boolean(true),
       Object::String(string) => Object::Boolean(!string.is_empty()),
       Object::Return(_) => unreachable!(),
     }
@@ -773,6 +796,9 @@ mod tests {
       (r#"len("hello world")"#, Object::Number(11.0)),
       (r#"len("")"#, Object::Number(0.0)),
       (r#"len("123")"#, Object::Number(3.0)),
+      ("len([1, 2, 3])", Object::Number(3.0)),
+      ("len([[]])", Object::Number(1.0)),
+      ("len([])", Object::Number(0.0)),
     ];
 
     for (input, expected) in test_cases {
@@ -808,6 +834,47 @@ mod tests {
       let mut interpreter = Interpreter::new();
 
       assert_eq!(interpreter.evaluate(program), Err(String::from(expected)));
+    }
+  }
+
+  #[test]
+  fn evaluate_array() {
+    let test_cases: Vec<(&str, Object)> = vec![
+      ("[]", Object::Array(vec![])),
+      (
+        "[1, 2, 3]",
+        Object::Array(vec![
+          Object::Number(1.0),
+          Object::Number(2.0),
+          Object::Number(3.0),
+        ]),
+      ),
+      (
+        "[[], -1]",
+        Object::Array(vec![Object::Array(vec![]), Object::Number(-1.0)]),
+      ),
+      (
+        "
+        let x = 10
+        let y = 20
+        let z = 30
+        [x, y, z]
+        ",
+        Object::Array(vec![
+          Object::Number(10.0),
+          Object::Number(20.0),
+          Object::Number(30.0),
+        ]),
+      ),
+    ];
+
+    for (input, expected) in test_cases {
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex().unwrap());
+
+      let program = parser.parse();
+      let mut interpreter = Interpreter::new();
+
+      assert_eq!(interpreter.evaluate(program).unwrap(), expected);
     }
   }
 }
