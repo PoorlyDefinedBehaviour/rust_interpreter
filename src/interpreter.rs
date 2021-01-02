@@ -895,7 +895,6 @@ mod tests {
       ("[1, 2, 3][0]", Object::Number(1.0)),
       ("[1, 2, 3][3]", Object::Null),
       ("[1, 2, 3][-1]", Object::Null),
-      ("[1, 2, 3][3]", Object::Null),
       ("[1, 2, 3][2]", Object::Number(3.0)),
     ];
 
