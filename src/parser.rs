@@ -375,7 +375,7 @@ impl Parser {
 
     let expression = Expression::Access(Box::new(AcessExpression {
       object: accessable_object,
-      key: key,
+      key,
     }));
 
     self.consume(Token::RightBracket);
