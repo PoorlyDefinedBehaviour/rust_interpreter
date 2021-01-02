@@ -193,7 +193,7 @@ impl Interpreter {
     match argument {
       Object::String(string) => Ok(Object::Number(string.len() as f64)),
       Object::Array(value) => Ok(Object::Number(value.len() as f64)),
-      object => return Err(format!("len() can't be used on {}", object)),
+      object => Err(format!("len() can't be used on {}", object)),
     }
   }
 
