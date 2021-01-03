@@ -170,6 +170,14 @@ impl Interpreter {
       .unwrap();
 
     interpreter
+      .environment
+      .set_binding(
+        String::from("last"),
+        Object::BuiltinFunction(BuiltinFunction(Interpreter::last)),
+      )
+      .unwrap();
+
+    interpreter
   }
 
   fn len(&self, arguments: Vec<Object>) -> Result<Object, InterpreterError> {
@@ -238,6 +246,35 @@ impl Interpreter {
       Object::Array(objects) => Ok(Object::Array(objects.iter().skip(1).cloned().collect())),
       Object::String(string) => Ok(Object::String(string.chars().skip(1).collect())),
       object => Err(format!("tail() can't be used on {}", object)),
+    }
+  }
+
+  fn last(&self, arguments: Vec<Object>) -> Result<Object, InterpreterError> {
+    if arguments.len() != 1 {
+      return Err(format!(
+        "last() expected one argument, got {}",
+        arguments.len()
+      ));
+    }
+
+    let argument = match arguments.first().unwrap() {
+      Object::Identifier(identifier) => match self.environment.get_binding(identifier) {
+        Some(object) => object,
+        None => return Err(format!("identifier not found: {}", identifier)),
+      },
+      object => object,
+    };
+
+    match argument {
+      Object::Array(objects) => Ok(objects.last().cloned().unwrap_or(Object::Null)),
+      Object::String(string) => Ok(Object::String(String::from(
+        string
+          .chars()
+          .last()
+          .map(|character| character.to_string())
+          .unwrap_or(String::from("")),
+      ))),
+      object => Err(format!("last() can't be used on {}", object)),
     }
   }
 
@@ -880,6 +917,8 @@ mod tests {
       ),
       ("tail([])", Object::Array(vec![])),
       ("tail([3])", Object::Array(vec![])),
+      ("last([1,2,3])", Object::Number(3.0)),
+      ("last([])", Object::Null),
     ];
 
     for (input, expected) in test_cases {
@@ -902,6 +941,8 @@ mod tests {
       (r#"head("")"#, Object::String(String::from(""))),
       (r#"tail("123")"#, Object::String(String::from("23"))),
       (r#"tail("")"#, Object::String(String::from(""))),
+      (r#"last("123")"#, Object::String(String::from("3"))),
+      (r#"last("")"#, Object::String(String::from(""))),
     ];
 
     for (input, expected) in test_cases {
@@ -939,6 +980,13 @@ mod tests {
       ),
       ("tail(x)", "identifier not found: x"),
       ("tail(333)", "tail() can't be used on 333"),
+      ("last()", "last() expected one argument, got 0"),
+      (
+        "last([], [1,2,3], [4,5,6])",
+        "last() expected one argument, got 3",
+      ),
+      ("last(x)", "identifier not found: x"),
+      ("last(333)", "last() can't be used on 333"),
     ];
 
     for (input, expected) in test_cases {
