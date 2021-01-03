@@ -154,6 +154,22 @@ impl Interpreter {
       .unwrap();
 
     interpreter
+      .environment
+      .set_binding(
+        String::from("head"),
+        Object::BuiltinFunction(BuiltinFunction(Interpreter::head)),
+      )
+      .unwrap();
+
+    interpreter
+      .environment
+      .set_binding(
+        String::from("tail"),
+        Object::BuiltinFunction(BuiltinFunction(Interpreter::tail)),
+      )
+      .unwrap();
+
+    interpreter
   }
 
   fn len(&self, arguments: Vec<Object>) -> Result<Object, InterpreterError> {
@@ -176,6 +192,52 @@ impl Interpreter {
       Object::String(string) => Ok(Object::Number(string.len() as f64)),
       Object::Array(value) => Ok(Object::Number(value.len() as f64)),
       object => Err(format!("len() can't be used on {}", object)),
+    }
+  }
+
+  fn head(&self, arguments: Vec<Object>) -> Result<Object, InterpreterError> {
+    if arguments.len() != 1 {
+      return Err(format!(
+        "head() expected one argument, got {}",
+        arguments.len()
+      ));
+    }
+
+    let argument = match arguments.first().unwrap() {
+      Object::Identifier(identifier) => match self.environment.get_binding(identifier) {
+        Some(object) => object,
+        None => return Err(format!("identifier not found: {}", identifier)),
+      },
+      object => object,
+    };
+
+    match argument {
+      Object::Array(objects) => Ok(objects.get(0).cloned().unwrap_or(Object::Null)),
+      Object::String(string) => Ok(Object::String(string.chars().take(1).collect())),
+      object => Err(format!("head() can't be used on {}", object)),
+    }
+  }
+
+  fn tail(&self, arguments: Vec<Object>) -> Result<Object, InterpreterError> {
+    if arguments.len() != 1 {
+      return Err(format!(
+        "tail() expected one argument, got {}",
+        arguments.len()
+      ));
+    }
+
+    let argument = match arguments.first().unwrap() {
+      Object::Identifier(identifier) => match self.environment.get_binding(identifier) {
+        Some(object) => object,
+        None => return Err(format!("identifier not found: {}", identifier)),
+      },
+      object => object,
+    };
+
+    match argument {
+      Object::Array(objects) => Ok(Object::Array(objects.iter().skip(1).cloned().collect())),
+      Object::String(string) => Ok(Object::String(string.chars().skip(1).collect())),
+      object => Err(format!("tail() can't be used on {}", object)),
     }
   }
 
@@ -804,14 +866,20 @@ mod tests {
   }
 
   #[test]
-  fn builtin_len_function() {
+  fn builtin_array_functions() {
     let test_cases: Vec<(&str, Object)> = vec![
-      (r#"len("hello world")"#, Object::Number(11.0)),
-      (r#"len("")"#, Object::Number(0.0)),
-      (r#"len("123")"#, Object::Number(3.0)),
       ("len([1, 2, 3])", Object::Number(3.0)),
       ("len([[]])", Object::Number(1.0)),
       ("len([])", Object::Number(0.0)),
+      ("head([1,2,3])", Object::Number(1.0)),
+      ("head([])", Object::Null),
+      ("head([-10])", Object::Number(-10.0)),
+      (
+        "tail([1,2,3])",
+        Object::Array(vec![Object::Number(2.0), Object::Number(3.0)]),
+      ),
+      ("tail([])", Object::Array(vec![])),
+      ("tail([3])", Object::Array(vec![])),
     ];
 
     for (input, expected) in test_cases {
@@ -825,7 +893,29 @@ mod tests {
   }
 
   #[test]
-  fn builtin_len_function_errors() {
+  fn builtin_string_functions() {
+    let test_cases: Vec<(&str, Object)> = vec![
+      (r#"len("hello world")"#, Object::Number(11.0)),
+      (r#"len("")"#, Object::Number(0.0)),
+      (r#"len("123")"#, Object::Number(3.0)),
+      (r#"head("123")"#, Object::String(String::from("1"))),
+      (r#"head("")"#, Object::String(String::from(""))),
+      (r#"tail("123")"#, Object::String(String::from("23"))),
+      (r#"tail("")"#, Object::String(String::from(""))),
+    ];
+
+    for (input, expected) in test_cases {
+      let mut parser = Parser::new(Lexer::new(String::from(input)).lex().unwrap());
+
+      let program = parser.parse();
+      let mut interpreter = Interpreter::new();
+
+      assert_eq!(interpreter.evaluate(program).unwrap(), expected);
+    }
+  }
+
+  #[test]
+  fn builtin_function_errors() {
     let test_cases: Vec<(&str, &str)> = vec![
       ("len(1)", "len() can't be used on 1"),
       ("len()", "len() expected one argument, got 0"),
@@ -835,6 +925,20 @@ mod tests {
       ),
       ("len(fn(x){ x + 2})", "len() can't be used on function"),
       ("len(x)", "identifier not found: x"),
+      ("head()", "head() expected one argument, got 0"),
+      (
+        "head([], [1,2,3], [4,5,6])",
+        "head() expected one argument, got 3",
+      ),
+      ("head(x)", "identifier not found: x"),
+      ("head(333)", "head() can't be used on 333"),
+      ("tail()", "tail() expected one argument, got 0"),
+      (
+        "tail([], [1,2,3], [4,5,6])",
+        "tail() expected one argument, got 3",
+      ),
+      ("tail(x)", "identifier not found: x"),
+      ("tail(333)", "tail() can't be used on 333"),
     ];
 
     for (input, expected) in test_cases {
