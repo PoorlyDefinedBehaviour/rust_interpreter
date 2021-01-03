@@ -267,13 +267,13 @@ impl Interpreter {
 
     match argument {
       Object::Array(objects) => Ok(objects.last().cloned().unwrap_or(Object::Null)),
-      Object::String(string) => Ok(Object::String(String::from(
+      Object::String(string) => Ok(Object::String(
         string
           .chars()
           .last()
           .map(|character| character.to_string())
           .unwrap_or_else(|| String::from("")),
-      ))),
+      )),
       object => Err(format!("last() can't be used on {}", object)),
     }
   }
