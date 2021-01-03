@@ -272,7 +272,7 @@ impl Interpreter {
           .chars()
           .last()
           .map(|character| character.to_string())
-          .unwrap_or(String::from("")),
+          .unwrap_or_else(|| String::from("")),
       ))),
       object => Err(format!("last() can't be used on {}", object)),
     }
